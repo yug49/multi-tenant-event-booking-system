@@ -101,20 +101,22 @@ export default function Events() {
     setFormError(null);
 
     try {
-      const eventData = {
+      const baseEventData = {
         name: formData.name,
         description: formData.description || null,
         startTime: new Date(formData.startTime).toISOString(),
         endTime: new Date(formData.endTime).toISOString(),
         capacity: parseInt(formData.capacity, 10),
-        organizationId: selectedOrganization.id,
         parentEventId: formData.parentEventId || null,
       };
 
       if (editingEvent) {
-        await eventService.update(editingEvent.id, eventData);
+        await eventService.update(editingEvent.id, baseEventData);
       } else {
-        await eventService.create(eventData);
+        await eventService.create({
+          ...baseEventData,
+          organizationId: selectedOrganization.id,
+        });
       }
 
       setIsModalOpen(false);
