@@ -1,58 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Modal, Input, Select, Table, Badge } from '../components/ui';
 import type { Event } from '../types';
-
-// Mock data for development
-const MOCK_EVENTS: Event[] = [
-  {
-    id: '1',
-    name: 'Annual Tech Conference',
-    description: 'Main conference event',
-    startTime: '2026-02-15T09:00:00Z',
-    endTime: '2026-02-15T18:00:00Z',
-    capacity: 500,
-    organizationId: '1',
-    parentEventId: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'Opening Keynote',
-    description: 'Welcome and keynote presentation',
-    startTime: '2026-02-15T09:00:00Z',
-    endTime: '2026-02-15T10:30:00Z',
-    capacity: 500,
-    organizationId: '1',
-    parentEventId: '1',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Workshop: Cloud Architecture',
-    description: 'Hands-on workshop',
-    startTime: '2026-02-15T11:00:00Z',
-    endTime: '2026-02-15T13:00:00Z',
-    capacity: 50,
-    organizationId: '1',
-    parentEventId: '1',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    name: 'Team Building Session',
-    description: 'Quarterly team activity',
-    startTime: '2026-02-20T14:00:00Z',
-    endTime: '2026-02-20T17:00:00Z',
-    capacity: 30,
-    organizationId: '1',
-    parentEventId: null,
-    createdAt: new Date().toISOString(),
-  },
-];
+import { eventService } from '../services';
+import { useOrganization } from '../context';
 
 export default function Events() {
-  const [events] = useState<Event[]>(MOCK_EVENTS);
+  const { selectedOrganization } = useOrganization();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -61,6 +19,28 @@ export default function Events() {
     capacity: '',
     parentEventId: '',
   });
+
+  const fetchEvents = useCallback(async () => {
+    if (!selectedOrganization) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await eventService.getAll();
+      const orgEvents = response.data.filter(
+        (e) => e.organizationId === selectedOrganization.id
+      );
+      setEvents(orgEvents);
+    } catch (err) {
+      setError('Failed to fetch events');
+      console.error('Error fetching events:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedOrganization]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -78,6 +58,79 @@ export default function Events() {
   };
 
   const parentEvents = events.filter((e) => e.parentEventId === null);
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      startTime: '',
+      endTime: '',
+      capacity: '',
+      parentEventId: '',
+    });
+    setEditingEvent(null);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (event: Event) => {
+    setEditingEvent(event);
+    setFormData({
+      name: event.name,
+      description: event.description || '',
+      startTime: event.startTime.slice(0, 16),
+      endTime: event.endTime.slice(0, 16),
+      capacity: String(event.capacity),
+      parentEventId: event.parentEventId || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrganization) return;
+
+    try {
+      const eventData = {
+        name: formData.name,
+        description: formData.description || null,
+        startTime: new Date(formData.startTime).toISOString(),
+        endTime: new Date(formData.endTime).toISOString(),
+        capacity: parseInt(formData.capacity, 10),
+        organizationId: selectedOrganization.id,
+        parentEventId: formData.parentEventId || null,
+      };
+
+      if (editingEvent) {
+        await eventService.update(editingEvent.id, eventData);
+      } else {
+        await eventService.create(eventData);
+      }
+
+      setIsModalOpen(false);
+      resetForm();
+      fetchEvents();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to save event';
+      setError(message);
+      console.error('Error saving event:', err);
+    }
+  };
+
+  const handleDelete = async (event: Event) => {
+    if (!confirm(`Are you sure you want to delete "${event.name}"?`)) return;
+
+    try {
+      await eventService.delete(event.id);
+      fetchEvents();
+    } catch (err) {
+      setError('Failed to delete event');
+      console.error('Error deleting event:', err);
+    }
+  };
 
   const columns = [
     {
@@ -119,62 +172,75 @@ export default function Events() {
     {
       key: 'actions',
       header: '',
-      render: () => (
+      render: (event: Event) => (
         <div className="flex gap-1 justify-end">
-          <Button variant="ghost" size="sm">Edit</Button>
-          <Button variant="ghost" size="sm">View</Button>
+          <Button variant="ghost" size="sm" onClick={() => openEditModal(event)}>
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => handleDelete(event)}>
+            Delete
+          </Button>
         </div>
       ),
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: API call to create event
-    console.log('Create event:', formData);
-    setIsModalOpen(false);
-    setFormData({
-      name: '',
-      description: '',
-      startTime: '',
-      endTime: '',
-      capacity: '',
-      parentEventId: '',
-    });
-  };
+  if (!selectedOrganization) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Please select an organization</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Events</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your organization's events and sessions</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>Create Event</Button>
+        <Button onClick={openCreateModal}>Create Event</Button>
       </div>
 
-      {/* Events Table */}
+      {error && (
+        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+          {error}
+          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
       <Card padding="none">
-        <Table
-          columns={columns}
-          data={events}
-          keyExtractor={(event) => event.id}
-          emptyMessage="No events created yet"
-        />
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-500">Loading events...</div>
+        ) : (
+          <Table
+            columns={columns}
+            data={events}
+            keyExtractor={(event) => event.id}
+            emptyMessage="No events created yet"
+          />
+        )}
       </Card>
 
-      {/* Create Event Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Create Event"
+        onClose={() => {
+          setIsModalOpen(false);
+          resetForm();
+        }}
+        title={editingEvent ? 'Edit Event' : 'Create Event'}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+            <Button variant="secondary" onClick={() => {
+              setIsModalOpen(false);
+              resetForm();
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>Create Event</Button>
+            <Button onClick={handleSubmit}>
+              {editingEvent ? 'Save Changes' : 'Create Event'}
+            </Button>
           </>
         }
       >
@@ -224,7 +290,9 @@ export default function Events() {
               onChange={(e) => setFormData({ ...formData, parentEventId: e.target.value })}
               options={[
                 { value: '', label: 'None (standalone)' },
-                ...parentEvents.map((e) => ({ value: e.id, label: e.name })),
+                ...parentEvents
+                  .filter((pe) => pe.id !== editingEvent?.id)
+                  .map((e) => ({ value: e.id, label: e.name })),
               ]}
             />
           </div>

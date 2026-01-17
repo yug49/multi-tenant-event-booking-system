@@ -1,72 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Modal, Input, Select, Table, Badge } from '../components/ui';
-import type { Resource } from '../types';
+import type { Resource, Event } from '../types';
 import { ResourceType } from '../types';
-
-// Mock data for development
-const MOCK_RESOURCES: Resource[] = [
-  {
-    id: '1',
-    name: 'Main Conference Hall',
-    description: 'Large hall with 500 seats',
-    type: ResourceType.EXCLUSIVE,
-    organizationId: '1',
-    isGlobal: false,
-    maxConcurrentUsage: null,
-    availableQuantity: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'Meeting Room A',
-    description: 'Small meeting room, 10 capacity',
-    type: ResourceType.EXCLUSIVE,
-    organizationId: '1',
-    isGlobal: false,
-    maxConcurrentUsage: null,
-    availableQuantity: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Projector',
-    description: 'HD Projector with HDMI',
-    type: ResourceType.SHAREABLE,
-    organizationId: null,
-    isGlobal: true,
-    maxConcurrentUsage: 5,
-    availableQuantity: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    name: 'Wireless Microphone',
-    description: 'Wireless mic with receiver',
-    type: ResourceType.SHAREABLE,
-    organizationId: '1',
-    isGlobal: false,
-    maxConcurrentUsage: 3,
-    availableQuantity: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '5',
-    name: 'Printed Handouts',
-    description: 'Conference materials pack',
-    type: ResourceType.CONSUMABLE,
-    organizationId: '1',
-    isGlobal: false,
-    maxConcurrentUsage: null,
-    availableQuantity: 500,
-    createdAt: new Date().toISOString(),
-  },
-];
+import { resourceService, eventService, allocationService } from '../services';
+import { useOrganization } from '../context';
 
 export default function Resources() {
-  const [resources] = useState<Resource[]>(MOCK_RESOURCES);
+  const { selectedOrganization } = useOrganization();
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
@@ -82,6 +30,41 @@ export default function Resources() {
     maxConcurrentUsage: '',
     availableQuantity: '',
   });
+  const [allocateForm, setAllocateForm] = useState({
+    eventId: '',
+    quantityUsed: '',
+  });
+
+  const fetchData = useCallback(async () => {
+    if (!selectedOrganization) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [resourcesRes, eventsRes] = await Promise.all([
+        resourceService.getAll(),
+        eventService.getAll(),
+      ]);
+      // Filter resources: org-specific OR global
+      const filtered = resourcesRes.data.filter(
+        (r) => r.organizationId === selectedOrganization.id || r.isGlobal
+      );
+      setResources(filtered);
+      // Filter events by org
+      const orgEvents = eventsRes.data.filter(
+        (e) => e.organizationId === selectedOrganization.id
+      );
+      setEvents(orgEvents);
+    } catch (err) {
+      setError('Failed to fetch resources');
+      console.error('Error fetching resources:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedOrganization]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getTypeVariant = (type: ResourceType): 'default' | 'success' | 'warning' | 'error' | 'info' => {
     switch (type) {
@@ -93,6 +76,101 @@ export default function Resources() {
         return 'warning';
       default:
         return 'default';
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      type: ResourceType.EXCLUSIVE,
+      isGlobal: false,
+      maxConcurrentUsage: '',
+      availableQuantity: '',
+    });
+    setEditingResource(null);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (resource: Resource) => {
+    setEditingResource(resource);
+    setFormData({
+      name: resource.name,
+      description: resource.description || '',
+      type: resource.type,
+      isGlobal: resource.isGlobal,
+      maxConcurrentUsage: resource.maxConcurrentUsage?.toString() || '',
+      availableQuantity: resource.availableQuantity?.toString() || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrganization) return;
+
+    try {
+      const resourceData = {
+        name: formData.name,
+        description: formData.description || null,
+        type: formData.type,
+        isGlobal: formData.isGlobal,
+        organizationId: formData.isGlobal ? null : selectedOrganization.id,
+        maxConcurrentUsage: formData.type === ResourceType.SHAREABLE ? parseInt(formData.maxConcurrentUsage, 10) : null,
+        availableQuantity: formData.type === ResourceType.CONSUMABLE ? parseInt(formData.availableQuantity, 10) : null,
+      };
+
+      if (editingResource) {
+        await resourceService.update(editingResource.id, resourceData);
+      } else {
+        await resourceService.create(resourceData);
+      }
+
+      setIsModalOpen(false);
+      resetForm();
+      fetchData();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to save resource';
+      setError(message);
+      console.error('Error saving resource:', err);
+    }
+  };
+
+  const handleDelete = async (resource: Resource) => {
+    if (!confirm(`Are you sure you want to delete "${resource.name}"?`)) return;
+
+    try {
+      await resourceService.delete(resource.id);
+      fetchData();
+    } catch (err) {
+      setError('Failed to delete resource');
+      console.error('Error deleting resource:', err);
+    }
+  };
+
+  const handleAllocate = async () => {
+    if (!selectedResource || !allocateForm.eventId) return;
+
+    try {
+      await allocationService.create({
+        eventId: allocateForm.eventId,
+        resourceId: selectedResource.id,
+        quantityUsed: selectedResource.type === ResourceType.CONSUMABLE
+          ? parseInt(allocateForm.quantityUsed, 10)
+          : undefined,
+      });
+      setIsAllocateModalOpen(false);
+      setAllocateForm({ eventId: '', quantityUsed: '' });
+      setSelectedResource(null);
+      fetchData();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to allocate resource';
+      setError(message);
+      console.error('Error allocating resource:', err);
     }
   };
 
@@ -144,43 +222,48 @@ export default function Resources() {
             size="sm"
             onClick={() => {
               setSelectedResource(resource);
+              setAllocateForm({ eventId: '', quantityUsed: '' });
               setIsAllocateModalOpen(true);
             }}
           >
             Allocate
           </Button>
-          <Button variant="ghost" size="sm">Edit</Button>
+          <Button variant="ghost" size="sm" onClick={() => openEditModal(resource)}>
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => handleDelete(resource)}>
+            Delete
+          </Button>
         </div>
       ),
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Create resource:', formData);
-    setIsModalOpen(false);
-    setFormData({
-      name: '',
-      description: '',
-      type: ResourceType.EXCLUSIVE,
-      isGlobal: false,
-      maxConcurrentUsage: '',
-      availableQuantity: '',
-    });
-  };
+  if (!selectedOrganization) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Please select an organization</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Resources</h1>
           <p className="text-sm text-gray-500 mt-1">Manage rooms, equipment, and consumables</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>Add Resource</Button>
+        <Button onClick={openCreateModal}>Add Resource</Button>
       </div>
 
-      {/* Resource Type Legend */}
+      {error && (
+        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+          {error}
+          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
       <div className="flex gap-4 text-xs text-gray-600">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-gray-400"></span>
@@ -196,27 +279,37 @@ export default function Resources() {
         </div>
       </div>
 
-      {/* Resources Table */}
       <Card padding="none">
-        <Table
-          columns={columns}
-          data={resources}
-          keyExtractor={(resource) => resource.id}
-          emptyMessage="No resources added yet"
-        />
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-500">Loading resources...</div>
+        ) : (
+          <Table
+            columns={columns}
+            data={resources}
+            keyExtractor={(resource) => resource.id}
+            emptyMessage="No resources added yet"
+          />
+        )}
       </Card>
 
-      {/* Create Resource Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Add Resource"
+        onClose={() => {
+          setIsModalOpen(false);
+          resetForm();
+        }}
+        title={editingResource ? 'Edit Resource' : 'Add Resource'}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+            <Button variant="secondary" onClick={() => {
+              setIsModalOpen(false);
+              resetForm();
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>Add Resource</Button>
+            <Button onClick={handleSubmit}>
+              {editingResource ? 'Save Changes' : 'Add Resource'}
+            </Button>
           </>
         }
       >
@@ -276,17 +369,22 @@ export default function Resources() {
         </form>
       </Modal>
 
-      {/* Allocate Resource Modal */}
       <Modal
         isOpen={isAllocateModalOpen}
-        onClose={() => setIsAllocateModalOpen(false)}
+        onClose={() => {
+          setIsAllocateModalOpen(false);
+          setSelectedResource(null);
+        }}
         title={`Allocate: ${selectedResource?.name}`}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsAllocateModalOpen(false)}>
+            <Button variant="secondary" onClick={() => {
+              setIsAllocateModalOpen(false);
+              setSelectedResource(null);
+            }}>
               Cancel
             </Button>
-            <Button onClick={() => setIsAllocateModalOpen(false)}>Allocate</Button>
+            <Button onClick={handleAllocate}>Allocate</Button>
           </>
         }
       >
@@ -294,18 +392,17 @@ export default function Resources() {
           <Select
             label="Select Event"
             placeholder="Choose an event"
-            options={[
-              { value: '1', label: 'Annual Tech Conference' },
-              { value: '2', label: 'Opening Keynote' },
-              { value: '3', label: 'Workshop: Cloud Architecture' },
-              { value: '4', label: 'Team Building Session' },
-            ]}
+            value={allocateForm.eventId}
+            onChange={(e) => setAllocateForm({ ...allocateForm, eventId: e.target.value })}
+            options={events.map((e) => ({ value: e.id, label: e.name }))}
           />
           {selectedResource?.type === ResourceType.CONSUMABLE && (
             <Input
               label="Quantity to Allocate"
               type="number"
               placeholder="Enter quantity"
+              value={allocateForm.quantityUsed}
+              onChange={(e) => setAllocateForm({ ...allocateForm, quantityUsed: e.target.value })}
             />
           )}
           <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-600">

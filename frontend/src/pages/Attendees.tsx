@@ -1,86 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Modal, Input, Select, Table, Badge } from '../components/ui';
+import type { Event, User, EventRegistration } from '../types';
+import { eventService, userService, registrationService } from '../services';
+import { useOrganization } from '../context';
 
-interface Attendee {
-  id: string;
-  eventId: string;
+interface AttendeeRow extends EventRegistration {
   eventName: string;
-  userId: string | null;
   userName: string | null;
-  externalEmail: string | null;
-  checkinTime: string | null;
-  registeredAt: string;
 }
 
-// Mock data for development
-const MOCK_ATTENDEES: Attendee[] = [
-  {
-    id: '1',
-    eventId: '1',
-    eventName: 'Annual Tech Conference',
-    userId: '1',
-    userName: 'John Smith',
-    externalEmail: null,
-    checkinTime: '2026-02-15T08:45:00Z',
-    registeredAt: '2026-01-10T14:30:00Z',
-  },
-  {
-    id: '2',
-    eventId: '1',
-    eventName: 'Annual Tech Conference',
-    userId: '2',
-    userName: 'Sarah Johnson',
-    externalEmail: null,
-    checkinTime: null,
-    registeredAt: '2026-01-12T09:15:00Z',
-  },
-  {
-    id: '3',
-    eventId: '1',
-    eventName: 'Annual Tech Conference',
-    userId: null,
-    userName: null,
-    externalEmail: 'guest@external.com',
-    checkinTime: null,
-    registeredAt: '2026-01-15T11:20:00Z',
-  },
-  {
-    id: '4',
-    eventId: '2',
-    eventName: 'Opening Keynote',
-    userId: '1',
-    userName: 'John Smith',
-    externalEmail: null,
-    checkinTime: '2026-02-15T08:50:00Z',
-    registeredAt: '2026-01-10T14:35:00Z',
-  },
-  {
-    id: '5',
-    eventId: '3',
-    eventName: 'Workshop: Cloud Architecture',
-    userId: null,
-    userName: null,
-    externalEmail: 'external.partner@company.org',
-    checkinTime: null,
-    registeredAt: '2026-01-18T16:00:00Z',
-  },
-];
-
-const MOCK_EVENTS = [
-  { value: '1', label: 'Annual Tech Conference' },
-  { value: '2', label: 'Opening Keynote' },
-  { value: '3', label: 'Workshop: Cloud Architecture' },
-  { value: '4', label: 'Team Building Session' },
-];
-
-const MOCK_USERS = [
-  { value: '1', label: 'John Smith' },
-  { value: '2', label: 'Sarah Johnson' },
-  { value: '3', label: 'Mike Wilson' },
-];
-
 export default function Attendees() {
-  const [attendees] = useState<Attendee[]>(MOCK_ATTENDEES);
+  const { selectedOrganization } = useOrganization();
+  const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isExternalModalOpen, setIsExternalModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<string>('');
@@ -89,6 +24,54 @@ export default function Attendees() {
     userId: '',
     externalEmail: '',
   });
+
+  const fetchData = useCallback(async () => {
+    if (!selectedOrganization) return;
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [eventsRes, usersRes] = await Promise.all([
+        eventService.getAll(),
+        userService.getAll(),
+      ]);
+      const orgEvents = eventsRes.data.filter(
+        (e) => e.organizationId === selectedOrganization.id
+      );
+      const orgUsers = usersRes.data.filter(
+        (u) => u.organizationId === selectedOrganization.id
+      );
+      setEvents(orgEvents);
+      setUsers(orgUsers);
+
+      // Fetch registrations for all events
+      const allAttendees: AttendeeRow[] = [];
+      for (const event of orgEvents) {
+        try {
+          const regRes = await registrationService.getByEvent(event.id);
+          const eventAttendees = regRes.data.map((reg) => ({
+            ...reg,
+            eventName: event.name,
+            userName: reg.userId
+              ? orgUsers.find((u) => u.id === reg.userId)?.name || 'Unknown User'
+              : null,
+          }));
+          allAttendees.push(...eventAttendees);
+        } catch {
+          // Event might have no registrations
+        }
+      }
+      setAttendees(allAttendees);
+    } catch (err) {
+      setError('Failed to fetch data');
+      console.error('Error fetching data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedOrganization]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -99,6 +82,62 @@ export default function Attendees() {
     });
   };
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await registrationService.registerUser({
+        eventId: formData.eventId,
+        userId: formData.userId,
+      });
+      setIsRegisterModalOpen(false);
+      setFormData({ eventId: '', userId: '', externalEmail: '' });
+      fetchData();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to register user';
+      setError(message);
+      console.error('Error registering user:', err);
+    }
+  };
+
+  const handleExternalRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await registrationService.registerExternal({
+        eventId: formData.eventId,
+        externalEmail: formData.externalEmail,
+      });
+      setIsExternalModalOpen(false);
+      setFormData({ eventId: '', userId: '', externalEmail: '' });
+      fetchData();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to register external attendee';
+      setError(message);
+      console.error('Error registering external:', err);
+    }
+  };
+
+  const handleCheckin = async (attendee: AttendeeRow) => {
+    try {
+      await registrationService.checkin(attendee.id);
+      fetchData();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to check in';
+      setError(message);
+      console.error('Error checking in:', err);
+    }
+  };
+
+  const handleCancel = async (attendee: AttendeeRow) => {
+    if (!confirm('Are you sure you want to cancel this registration?')) return;
+    try {
+      await registrationService.cancel(attendee.id);
+      fetchData();
+    } catch (err) {
+      setError('Failed to cancel registration');
+      console.error('Error canceling registration:', err);
+    }
+  };
+
   const filteredAttendees = selectedEvent
     ? attendees.filter((a) => a.eventId === selectedEvent)
     : attendees;
@@ -107,7 +146,7 @@ export default function Attendees() {
     {
       key: 'attendee',
       header: 'Attendee',
-      render: (attendee: Attendee) => (
+      render: (attendee: AttendeeRow) => (
         <div>
           <div className="font-medium text-gray-900">
             {attendee.userName || attendee.externalEmail}
@@ -121,21 +160,21 @@ export default function Attendees() {
     {
       key: 'event',
       header: 'Event',
-      render: (attendee: Attendee) => (
+      render: (attendee: AttendeeRow) => (
         <span className="text-sm">{attendee.eventName}</span>
       ),
     },
     {
       key: 'registered',
       header: 'Registered',
-      render: (attendee: Attendee) => (
+      render: (attendee: AttendeeRow) => (
         <span className="text-sm text-gray-600">{formatDate(attendee.registeredAt)}</span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (attendee: Attendee) => (
+      render: (attendee: AttendeeRow) => (
         <Badge variant={attendee.checkinTime ? 'success' : 'default'}>
           {attendee.checkinTime ? 'Checked In' : 'Registered'}
         </Badge>
@@ -144,10 +183,10 @@ export default function Attendees() {
     {
       key: 'actions',
       header: '',
-      render: (attendee: Attendee) => (
+      render: (attendee: AttendeeRow) => (
         <div className="flex gap-1 justify-end">
           {!attendee.checkinTime && (
-            <Button variant="primary" size="sm">
+            <Button variant="primary" size="sm" onClick={() => handleCheckin(attendee)}>
               Check In
             </Button>
           )}
@@ -156,33 +195,28 @@ export default function Attendees() {
               {formatDate(attendee.checkinTime)}
             </span>
           )}
+          <Button variant="ghost" size="sm" onClick={() => handleCancel(attendee)}>
+            Cancel
+          </Button>
         </div>
       ),
     },
   ];
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Register user:', formData);
-    setIsRegisterModalOpen(false);
-    setFormData({ eventId: '', userId: '', externalEmail: '' });
-  };
-
-  const handleExternalRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Register external:', formData);
-    setIsExternalModalOpen(false);
-    setFormData({ eventId: '', userId: '', externalEmail: '' });
-  };
-
-  // Stats
   const totalAttendees = filteredAttendees.length;
   const checkedIn = filteredAttendees.filter((a) => a.checkinTime).length;
   const external = filteredAttendees.filter((a) => !a.userId).length;
 
+  if (!selectedOrganization) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Please select an organization</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Attendees</h1>
@@ -196,7 +230,13 @@ export default function Attendees() {
         </div>
       </div>
 
-      {/* Stats & Filter */}
+      {error && (
+        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+          {error}
+          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex gap-6 text-sm">
           <div>
@@ -215,22 +255,27 @@ export default function Attendees() {
         <Select
           value={selectedEvent}
           onChange={(e) => setSelectedEvent(e.target.value)}
-          options={[{ value: '', label: 'All Events' }, ...MOCK_EVENTS]}
+          options={[
+            { value: '', label: 'All Events' },
+            ...events.map((e) => ({ value: e.id, label: e.name })),
+          ]}
           className="w-48"
         />
       </div>
 
-      {/* Attendees Table */}
       <Card padding="none">
-        <Table
-          columns={columns}
-          data={filteredAttendees}
-          keyExtractor={(attendee) => attendee.id}
-          emptyMessage="No attendees registered yet"
-        />
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-500">Loading attendees...</div>
+        ) : (
+          <Table
+            columns={columns}
+            data={filteredAttendees}
+            keyExtractor={(attendee) => attendee.id}
+            emptyMessage="No attendees registered yet"
+          />
+        )}
       </Card>
 
-      {/* Register User Modal */}
       <Modal
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
@@ -250,7 +295,7 @@ export default function Attendees() {
             placeholder="Choose an event"
             value={formData.eventId}
             onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
-            options={MOCK_EVENTS}
+            options={events.map((e) => ({ value: e.id, label: e.name }))}
             required
           />
           <Select
@@ -258,7 +303,7 @@ export default function Attendees() {
             placeholder="Choose a user"
             value={formData.userId}
             onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-            options={MOCK_USERS}
+            options={users.map((u) => ({ value: u.id, label: u.name }))}
             required
           />
           <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-600">
@@ -267,7 +312,6 @@ export default function Attendees() {
         </form>
       </Modal>
 
-      {/* External Attendee Modal */}
       <Modal
         isOpen={isExternalModalOpen}
         onClose={() => setIsExternalModalOpen(false)}
@@ -287,7 +331,7 @@ export default function Attendees() {
             placeholder="Choose an event"
             value={formData.eventId}
             onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
-            options={MOCK_EVENTS}
+            options={events.map((e) => ({ value: e.id, label: e.name }))}
             required
           />
           <Input

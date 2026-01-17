@@ -1,77 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Table, Badge } from '../components/ui';
-
-// Mock data for reports
-const MOCK_DOUBLE_BOOKED = [
-  {
-    userId: '1',
-    userName: 'John Smith',
-    conflictingEvents: [
-      { event1: 'Opening Keynote', event2: 'Workshop: Cloud Architecture', time: 'Feb 15, 9:00 AM - 10:30 AM' },
-    ],
-  },
-  {
-    userId: '3',
-    userName: 'Mike Wilson',
-    conflictingEvents: [
-      { event1: 'Team Meeting', event2: 'Product Demo', time: 'Feb 20, 2:00 PM - 3:00 PM' },
-    ],
-  },
-];
-
-const MOCK_RESOURCE_VIOLATIONS = [
-  {
-    id: '1',
-    resourceName: 'Main Conference Hall',
-    violationType: 'EXCLUSIVE_OVERLAP',
-    events: ['Annual Tech Conference', 'Corporate Meetup'],
-    time: 'Feb 15, 9:00 AM - 12:00 PM',
-  },
-  {
-    id: '2',
-    resourceName: 'Projector',
-    violationType: 'SHAREABLE_EXCEEDED',
-    events: ['Workshop A', 'Workshop B', 'Workshop C', 'Workshop D', 'Workshop E', 'Training Session'],
-    time: 'Feb 15, 11:00 AM - 1:00 PM',
-    maxConcurrent: 5,
-    actualConcurrent: 6,
-  },
-  {
-    id: '3',
-    resourceName: 'Printed Handouts',
-    violationType: 'CONSUMABLE_EXCEEDED',
-    events: ['Conference Day 1', 'Conference Day 2'],
-    available: 500,
-    requested: 650,
-  },
-];
-
-const MOCK_UTILIZATION = [
-  { resourceId: '1', resourceName: 'Main Conference Hall', totalHours: 45, peakConcurrent: 1, utilizationRate: 75 },
-  { resourceId: '2', resourceName: 'Meeting Room A', totalHours: 28, peakConcurrent: 1, utilizationRate: 47 },
-  { resourceId: '3', resourceName: 'Projector', totalHours: 62, peakConcurrent: 4, utilizationRate: 82 },
-  { resourceId: '4', resourceName: 'Wireless Microphone', totalHours: 35, peakConcurrent: 2, utilizationRate: 58 },
-];
-
-const MOCK_PARENT_CHILD_VIOLATIONS = [
-  {
-    parentEvent: 'Annual Tech Conference',
-    childEvent: 'Networking Lunch',
-    parentTime: 'Feb 15, 9:00 AM - 6:00 PM',
-    childTime: 'Feb 15, 12:00 PM - 7:00 PM',
-    reason: 'Child event ends after parent event',
-  },
-];
-
-const MOCK_EXTERNAL_THRESHOLD = [
-  { eventName: 'Annual Tech Conference', totalAttendees: 150, externalCount: 45, percentage: 30 },
-  { eventName: 'Open Workshop', totalAttendees: 40, externalCount: 25, percentage: 62 },
-];
+import { reportService } from '../services';
+import { useOrganization } from '../context';
 
 type ReportTab = 'double-booked' | 'violations' | 'utilization' | 'parent-child' | 'external';
 
 export default function Reports() {
+  const { selectedOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState<ReportTab>('double-booked');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Report data states
+  const [doubleBooked, setDoubleBooked] = useState<any[]>([]);
+  const [violations, setViolations] = useState<{
+    shareableViolations: any[];
+    exclusiveViolations: any[];
+    consumableViolations: any[];
+  }>({ shareableViolations: [], exclusiveViolations: [], consumableViolations: [] });
+  const [utilization, setUtilization] = useState<any[]>([]);
+  const [parentChildViolations, setParentChildViolations] = useState<any[]>([]);
+  const [externalAttendees, setExternalAttendees] = useState<any[]>([]);
+
+  const fetchReports = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const [
+        doubleBookedRes,
+        violationsRes,
+        utilizationRes,
+        parentChildRes,
+        externalRes,
+      ] = await Promise.all([
+        reportService.getDoubleBookedUsers(),
+        reportService.getResourceViolations(),
+        reportService.getResourceUtilization(selectedOrganization?.id),
+        reportService.getParentChildViolations(),
+        reportService.getExternalAttendeeReport(5),
+      ]);
+
+      setDoubleBooked(doubleBookedRes.data);
+      setViolations(violationsRes.data);
+      setUtilization(utilizationRes.data);
+      setParentChildViolations(parentChildRes.data);
+      setExternalAttendees(externalRes.data);
+    } catch (err) {
+      setError('Failed to fetch reports');
+      console.error('Error fetching reports:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedOrganization]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   const tabs = [
     { id: 'double-booked' as const, label: 'Double-Booked Users' },
@@ -94,20 +79,49 @@ export default function Reports() {
     }
   };
 
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Combine all violations for display
+  const allViolations = [
+    ...violations.exclusiveViolations.map((v) => ({ ...v, type: 'EXCLUSIVE_OVERLAP' })),
+    ...violations.shareableViolations.map((v) => ({ ...v, type: 'SHAREABLE_EXCEEDED' })),
+    ...violations.consumableViolations.map((v) => ({ ...v, type: 'CONSUMABLE_EXCEEDED' })),
+  ];
+
+  if (!selectedOrganization) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Please select an organization</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Reports</h1>
           <p className="text-sm text-gray-500 mt-1">Analytics and constraint violation reports</p>
         </div>
-        <Button variant="secondary">
-          Refresh Data
+        <Button variant="secondary" onClick={fetchReports} disabled={isLoading}>
+          {isLoading ? 'Loading...' : 'Refresh Data'}
         </Button>
       </div>
 
-      {/* Tabs */}
+      {error && (
+        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+          {error}
+          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
       <div className="border-b border-gray-200">
         <nav className="flex gap-4">
           {tabs.map((tab) => (
@@ -133,36 +147,51 @@ export default function Reports() {
             <h3 className="font-medium text-gray-900">Users with Overlapping Registrations</h3>
             <p className="text-xs text-gray-500 mt-1">Users registered for events with conflicting schedules</p>
           </div>
-          <Table
-            columns={[
-              {
-                key: 'user',
-                header: 'User',
-                render: (item: typeof MOCK_DOUBLE_BOOKED[0]) => (
-                  <span className="font-medium">{item.userName}</span>
-                ),
-              },
-              {
-                key: 'conflicts',
-                header: 'Conflicting Events',
-                render: (item: typeof MOCK_DOUBLE_BOOKED[0]) => (
-                  <div className="space-y-1">
-                    {item.conflictingEvents.map((conflict, i) => (
-                      <div key={i} className="text-sm">
-                        <span className="text-gray-900">{conflict.event1}</span>
-                        <span className="text-gray-400 mx-2">↔</span>
-                        <span className="text-gray-900">{conflict.event2}</span>
-                        <span className="text-gray-500 ml-2 text-xs">({conflict.time})</span>
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : (
+            <Table
+              columns={[
+                {
+                  key: 'user',
+                  header: 'User',
+                  render: (item: any) => (
+                    <div>
+                      <span className="font-medium">{item.user_name}</span>
+                      <div className="text-xs text-gray-500">{item.user_email}</div>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'event1',
+                  header: 'Event 1',
+                  render: (item: any) => (
+                    <div>
+                      <span className="text-gray-900">{item.event1_name}</span>
+                      <div className="text-xs text-gray-500">
+                        {formatDateTime(item.event1_start)} - {formatDateTime(item.event1_end)}
                       </div>
-                    ))}
-                  </div>
-                ),
-              },
-            ]}
-            data={MOCK_DOUBLE_BOOKED}
-            keyExtractor={(item) => item.userId}
-            emptyMessage="No double-booking conflicts found"
-          />
+                    </div>
+                  ),
+                },
+                {
+                  key: 'event2',
+                  header: 'Event 2',
+                  render: (item: any) => (
+                    <div>
+                      <span className="text-gray-900">{item.event2_name}</span>
+                      <div className="text-xs text-gray-500">
+                        {formatDateTime(item.event2_start)} - {formatDateTime(item.event2_end)}
+                      </div>
+                    </div>
+                  ),
+                },
+              ]}
+              data={doubleBooked}
+              keyExtractor={(item: any) => `${item.user_id}-${item.event1_id}-${item.event2_id}`}
+              emptyMessage="No double-booking conflicts found"
+            />
+          )}
         </Card>
       )}
 
@@ -173,46 +202,52 @@ export default function Reports() {
             <h3 className="font-medium text-gray-900">Resource Constraint Violations</h3>
             <p className="text-xs text-gray-500 mt-1">Resources with allocation conflicts or exceeded limits</p>
           </div>
-          <Table
-            columns={[
-              {
-                key: 'resource',
-                header: 'Resource',
-                render: (item: typeof MOCK_RESOURCE_VIOLATIONS[0]) => (
-                  <span className="font-medium">{item.resourceName}</span>
-                ),
-              },
-              {
-                key: 'type',
-                header: 'Violation',
-                render: (item: typeof MOCK_RESOURCE_VIOLATIONS[0]) => getViolationBadge(item.violationType),
-              },
-              {
-                key: 'details',
-                header: 'Details',
-                render: (item: typeof MOCK_RESOURCE_VIOLATIONS[0]) => (
-                  <div className="text-sm">
-                    {item.violationType === 'EXCLUSIVE_OVERLAP' && (
-                      <span>Events overlap: {item.events.join(', ')}</span>
-                    )}
-                    {item.violationType === 'SHAREABLE_EXCEEDED' && (
-                      <span>
-                        {item.actualConcurrent} concurrent uses (max: {item.maxConcurrent})
-                      </span>
-                    )}
-                    {item.violationType === 'CONSUMABLE_EXCEEDED' && (
-                      <span>
-                        Requested: {item.requested}, Available: {item.available}
-                      </span>
-                    )}
-                  </div>
-                ),
-              },
-            ]}
-            data={MOCK_RESOURCE_VIOLATIONS}
-            keyExtractor={(item) => item.id}
-            emptyMessage="No resource violations found"
-          />
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : (
+            <Table
+              columns={[
+                {
+                  key: 'resource',
+                  header: 'Resource',
+                  render: (item: any) => (
+                    <span className="font-medium">{item.resource_name}</span>
+                  ),
+                },
+                {
+                  key: 'type',
+                  header: 'Violation',
+                  render: (item: any) => getViolationBadge(item.type),
+                },
+                {
+                  key: 'details',
+                  header: 'Details',
+                  render: (item: any) => (
+                    <div className="text-sm">
+                      {item.type === 'EXCLUSIVE_OVERLAP' && (
+                        <span>
+                          {item.event1_name} ↔ {item.event2_name}
+                        </span>
+                      )}
+                      {item.type === 'SHAREABLE_EXCEEDED' && (
+                        <span>
+                          {item.concurrent_count} concurrent uses (max: {item.max_concurrent_usage})
+                        </span>
+                      )}
+                      {item.type === 'CONSUMABLE_EXCEEDED' && (
+                        <span>
+                          Allocated: {item.total_allocated}, Available: {item.available_quantity}
+                        </span>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+              data={allViolations}
+              keyExtractor={(item: any) => `${item.resource_id}-${item.type}-${item.event_id || item.event1_id || ''}`}
+              emptyMessage="No resource violations found"
+            />
+          )}
         </Card>
       )}
 
@@ -223,52 +258,65 @@ export default function Reports() {
             <h3 className="font-medium text-gray-900">Resource Utilization</h3>
             <p className="text-xs text-gray-500 mt-1">Usage metrics and efficiency analysis</p>
           </div>
-          <Table
-            columns={[
-              {
-                key: 'resource',
-                header: 'Resource',
-                render: (item: typeof MOCK_UTILIZATION[0]) => (
-                  <span className="font-medium">{item.resourceName}</span>
-                ),
-              },
-              {
-                key: 'hours',
-                header: 'Total Hours',
-                render: (item: typeof MOCK_UTILIZATION[0]) => (
-                  <span>{item.totalHours}h</span>
-                ),
-              },
-              {
-                key: 'peak',
-                header: 'Peak Concurrent',
-                render: (item: typeof MOCK_UTILIZATION[0]) => (
-                  <span>{item.peakConcurrent}</span>
-                ),
-              },
-              {
-                key: 'rate',
-                header: 'Utilization',
-                render: (item: typeof MOCK_UTILIZATION[0]) => (
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          item.utilizationRate >= 70 ? 'bg-emerald-500' : 
-                          item.utilizationRate >= 40 ? 'bg-amber-500' : 'bg-gray-400'
-                        }`}
-                        style={{ width: `${item.utilizationRate}%` }}
-                      />
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : (
+            <Table
+              columns={[
+                {
+                  key: 'resource',
+                  header: 'Resource',
+                  render: (item: any) => (
+                    <div>
+                      <span className="font-medium">{item.resource_name}</span>
+                      {item.is_global && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                          Global
+                        </span>
+                      )}
                     </div>
-                    <span className="text-sm text-gray-600">{item.utilizationRate}%</span>
-                  </div>
-                ),
-              },
-            ]}
-            data={MOCK_UTILIZATION}
-            keyExtractor={(item) => item.resourceId}
-            emptyMessage="No utilization data available"
-          />
+                  ),
+                },
+                {
+                  key: 'type',
+                  header: 'Type',
+                  render: (item: any) => <Badge>{item.resource_type}</Badge>,
+                },
+                {
+                  key: 'hours',
+                  header: 'Total Hours',
+                  render: (item: any) => (
+                    <span>{parseFloat(item.total_hours_used || 0).toFixed(1)}h</span>
+                  ),
+                },
+                {
+                  key: 'allocations',
+                  header: 'Allocations',
+                  render: (item: any) => <span>{item.total_allocations}</span>,
+                },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  render: (item: any) => {
+                    const status = item.utilization_status;
+                    return (
+                      <Badge
+                        variant={
+                          status === 'ACTIVE' ? 'success' :
+                          status === 'UNDERUTILIZED' ? 'warning' : 'default'
+                        }
+                      >
+                        {status}
+                      </Badge>
+                    );
+                  },
+                },
+              ]}
+              data={utilization}
+              keyExtractor={(item) => item.resource_id}
+              emptyMessage="No utilization data available"
+            />
+          )}
         </Card>
       )}
 
@@ -279,40 +327,52 @@ export default function Reports() {
             <h3 className="font-medium text-gray-900">Parent-Child Time Violations</h3>
             <p className="text-xs text-gray-500 mt-1">Child sessions that exceed parent event boundaries</p>
           </div>
-          <Table
-            columns={[
-              {
-                key: 'parent',
-                header: 'Parent Event',
-                render: (item: typeof MOCK_PARENT_CHILD_VIOLATIONS[0]) => (
-                  <div>
-                    <span className="font-medium">{item.parentEvent}</span>
-                    <div className="text-xs text-gray-500">{item.parentTime}</div>
-                  </div>
-                ),
-              },
-              {
-                key: 'child',
-                header: 'Child Session',
-                render: (item: typeof MOCK_PARENT_CHILD_VIOLATIONS[0]) => (
-                  <div>
-                    <span className="font-medium">{item.childEvent}</span>
-                    <div className="text-xs text-gray-500">{item.childTime}</div>
-                  </div>
-                ),
-              },
-              {
-                key: 'reason',
-                header: 'Violation',
-                render: (item: typeof MOCK_PARENT_CHILD_VIOLATIONS[0]) => (
-                  <Badge variant="error">{item.reason}</Badge>
-                ),
-              },
-            ]}
-            data={MOCK_PARENT_CHILD_VIOLATIONS}
-            keyExtractor={(item) => `${item.parentEvent}-${item.childEvent}`}
-            emptyMessage="No time boundary violations found"
-          />
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : (
+            <Table
+              columns={[
+                {
+                  key: 'parent',
+                  header: 'Parent Event',
+                  render: (item: any) => (
+                    <div>
+                      <span className="font-medium">{item.parent_name}</span>
+                      <div className="text-xs text-gray-500">
+                        {formatDateTime(item.parent_start)} - {formatDateTime(item.parent_end)}
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'child',
+                  header: 'Child Session',
+                  render: (item: any) => (
+                    <div>
+                      <span className="font-medium">{item.child_name}</span>
+                      <div className="text-xs text-gray-500">
+                        {formatDateTime(item.child_start)} - {formatDateTime(item.child_end)}
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'reason',
+                  header: 'Violation',
+                  render: (item: any) => (
+                    <Badge variant="error">
+                      {item.violation_type === 'CHILD_STARTS_BEFORE_PARENT'
+                        ? 'Child starts before parent'
+                        : 'Child ends after parent'}
+                    </Badge>
+                  ),
+                },
+              ]}
+              data={parentChildViolations}
+              keyExtractor={(item: any) => `${item.parent_id}-${item.child_id}`}
+              emptyMessage="No time boundary violations found"
+            />
+          )}
         </Card>
       )}
 
@@ -321,45 +381,48 @@ export default function Reports() {
         <Card padding="none">
           <div className="p-4 border-b border-gray-100">
             <h3 className="font-medium text-gray-900">External Attendees Report</h3>
-            <p className="text-xs text-gray-500 mt-1">Events with high external attendee counts</p>
+            <p className="text-xs text-gray-500 mt-1">Events with more than 5 external attendees</p>
           </div>
-          <Table
-            columns={[
-              {
-                key: 'event',
-                header: 'Event',
-                render: (item: typeof MOCK_EXTERNAL_THRESHOLD[0]) => (
-                  <span className="font-medium">{item.eventName}</span>
-                ),
-              },
-              {
-                key: 'total',
-                header: 'Total Attendees',
-                render: (item: typeof MOCK_EXTERNAL_THRESHOLD[0]) => (
-                  <span>{item.totalAttendees}</span>
-                ),
-              },
-              {
-                key: 'external',
-                header: 'External',
-                render: (item: typeof MOCK_EXTERNAL_THRESHOLD[0]) => (
-                  <span>{item.externalCount}</span>
-                ),
-              },
-              {
-                key: 'percentage',
-                header: 'Percentage',
-                render: (item: typeof MOCK_EXTERNAL_THRESHOLD[0]) => (
-                  <Badge variant={item.percentage > 50 ? 'warning' : 'default'}>
-                    {item.percentage}%
-                  </Badge>
-                ),
-              },
-            ]}
-            data={MOCK_EXTERNAL_THRESHOLD}
-            keyExtractor={(item) => item.eventName}
-            emptyMessage="No external attendee data available"
-          />
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : (
+            <Table
+              columns={[
+                {
+                  key: 'event',
+                  header: 'Event',
+                  render: (item: any) => (
+                    <div>
+                      <span className="font-medium">{item.event_name}</span>
+                      <div className="text-xs text-gray-500">{item.organization_name}</div>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'total',
+                  header: 'Total Registrations',
+                  render: (item: any) => <span>{item.total_registrations}</span>,
+                },
+                {
+                  key: 'users',
+                  header: 'Registered Users',
+                  render: (item: any) => <span>{item.registered_user_count}</span>,
+                },
+                {
+                  key: 'external',
+                  header: 'External Attendees',
+                  render: (item: any) => (
+                    <Badge variant={item.external_attendee_count > 10 ? 'warning' : 'info'}>
+                      {item.external_attendee_count}
+                    </Badge>
+                  ),
+                },
+              ]}
+              data={externalAttendees}
+              keyExtractor={(item) => item.event_id}
+              emptyMessage="No events with external attendees above threshold"
+            />
+          )}
         </Card>
       )}
     </div>

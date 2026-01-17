@@ -1,37 +1,50 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { Organization } from '../types';
+import { organizationService } from '../services';
 
 interface OrganizationContextType {
   organizations: Organization[];
   selectedOrganization: Organization | null;
   setSelectedOrganization: (org: Organization) => void;
   isLoading: boolean;
+  error: string | null;
+  refreshOrganizations: () => Promise<void>;
 }
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
-// Mock data for initial development
-const MOCK_ORGANIZATIONS: Organization[] = [
-  { id: '1', name: 'Organization 1', createdAt: new Date().toISOString() },
-  { id: '2', name: 'Organization 2', createdAt: new Date().toISOString() },
-  { id: '3', name: 'Organization 3', createdAt: new Date().toISOString() },
-];
-
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const [organizations] = useState<Organization[]>(MOCK_ORGANIZATIONS);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrganization, setSelectedOrganizationState] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOrganizations = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await organizationService.getAll();
+      const orgs = response.data;
+      setOrganizations(orgs);
+
+      // Initialize with stored organization or first one
+      const storedOrgId = localStorage.getItem('selectedOrganizationId');
+      const org = orgs.find((o) => o.id === storedOrgId) || orgs[0];
+      if (org) {
+        setSelectedOrganizationState(org);
+        localStorage.setItem('selectedOrganizationId', org.id);
+      }
+    } catch (err) {
+      setError('Failed to fetch organizations');
+      console.error('Error fetching organizations:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // Initialize with stored organization or first one
-    const storedOrgId = localStorage.getItem('selectedOrganizationId');
-    const org = organizations.find((o) => o.id === storedOrgId) || organizations[0];
-    if (org) {
-      setSelectedOrganizationState(org);
-      localStorage.setItem('selectedOrganizationId', org.id);
-    }
-    setIsLoading(false);
-  }, [organizations]);
+    fetchOrganizations();
+  }, [fetchOrganizations]);
 
   const setSelectedOrganization = (org: Organization) => {
     setSelectedOrganizationState(org);
@@ -45,6 +58,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         selectedOrganization,
         setSelectedOrganization,
         isLoading,
+        error,
+        refreshOrganizations: fetchOrganizations,
       }}
     >
       {children}

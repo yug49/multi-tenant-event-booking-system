@@ -14,7 +14,7 @@ export const organizationService = {
 export const userService = {
   getAll: () => api.get<User[]>('/users'),
   getById: (id: string) => api.get<User>(`/users/${id}`),
-  create: (data: Partial<User>) => api.post<User>('/users', data),
+  create: (data: Partial<User> & { password: string }) => api.post<User>('/users', data),
   update: (id: string, data: Partial<User>) => api.put<User>(`/users/${id}`, data),
   delete: (id: string) => api.delete(`/users/${id}`),
 };
@@ -40,30 +40,33 @@ export const resourceService = {
 
 // Event Registrations
 export const registrationService = {
-  getByEvent: (eventId: string) => api.get<EventRegistration[]>(`/events/${eventId}/registrations`),
-  register: (eventId: string, data: { userId?: string; externalEmail?: string }) =>
-    api.post<EventRegistration>(`/events/${eventId}/registrations`, data),
-  checkin: (eventId: string, registrationId: string) =>
-    api.patch<EventRegistration>(`/events/${eventId}/registrations/${registrationId}/checkin`),
-  cancel: (eventId: string, registrationId: string) =>
-    api.delete(`/events/${eventId}/registrations/${registrationId}`),
+  getByEvent: (eventId: string) => api.get<EventRegistration[]>(`/registrations?eventId=${eventId}`),
+  registerUser: (data: { eventId: string; userId: string }) =>
+    api.post<EventRegistration>('/registrations/user', data),
+  registerExternal: (data: { eventId: string; externalEmail: string }) =>
+    api.post<EventRegistration>('/registrations/external', data),
+  checkin: (id: string) => api.post<EventRegistration>(`/registrations/${id}/checkin`),
+  cancel: (id: string) => api.delete(`/registrations/${id}`),
 };
 
 // Resource Allocations
 export const allocationService = {
-  getByEvent: (eventId: string) => api.get<ResourceAllocation[]>(`/events/${eventId}/allocations`),
-  allocate: (eventId: string, data: { resourceId: string; quantityUsed?: number }) =>
-    api.post<ResourceAllocation>(`/events/${eventId}/allocations`, data),
-  deallocate: (eventId: string, allocationId: string) =>
-    api.delete(`/events/${eventId}/allocations/${allocationId}`),
+  getByEvent: (eventId: string) => api.get<ResourceAllocation[]>(`/allocations?eventId=${eventId}`),
+  getByResource: (resourceId: string) => api.get<ResourceAllocation[]>(`/allocations/resource/${resourceId}`),
+  create: (data: { eventId: string; resourceId: string; quantityUsed?: number }) =>
+    api.post<ResourceAllocation>('/allocations', data),
+  delete: (id: string) => api.delete(`/allocations/${id}`),
 };
 
 // Reports
 export const reportService = {
   getDoubleBookedUsers: () => api.get('/reports/double-booked-users'),
   getResourceViolations: () => api.get('/reports/resource-violations'),
-  getResourceUtilization: () => api.get('/reports/resource-utilization'),
+  getResourceUtilization: (organizationId?: string) => 
+    api.get(`/reports/resource-utilization${organizationId ? `?organizationId=${organizationId}` : ''}`),
+  getPeakConcurrentUsage: () => api.get('/reports/peak-concurrent-usage'),
   getParentChildViolations: () => api.get('/reports/parent-child-violations'),
   getExternalAttendeeReport: (threshold: number) =>
     api.get(`/reports/external-attendees?threshold=${threshold}`),
+  refreshUtilizationView: () => api.post('/reports/refresh-utilization-view'),
 };

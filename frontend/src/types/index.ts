@@ -26,7 +26,7 @@ export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
 export interface Resource {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   type: ResourceType;
   organizationId: string | null;
   isGlobal: boolean;
@@ -39,7 +39,7 @@ export interface Resource {
 export interface Event {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   startTime: string;
   endTime: string;
   capacity: number;
