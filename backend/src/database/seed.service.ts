@@ -1,36 +1,45 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
-export class SeedService implements OnModuleInit {
+export class SeedService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(SeedService.name);
+
   constructor(private readonly dataSource: DataSource) {}
 
-  async onModuleInit() {
-    // Only seed in production if SEED_ON_START is set
+  async onApplicationBootstrap() {
+    // Only seed if SEED_ON_START is set
     if (process.env.SEED_ON_START !== 'true') {
+      this.logger.log('SEED_ON_START not set, skipping seeding');
       return;
     }
 
-    console.log('Checking if database needs seeding...');
-    
-    const queryRunner = this.dataSource.createQueryRunner();
+    this.logger.log('Checking if database needs seeding...');
     
     try {
-      // Check if data already exists
-      const existingOrgs = await queryRunner.query('SELECT COUNT(*) as count FROM organizations');
-      if (parseInt(existingOrgs[0].count) > 0) {
-        console.log('Database already has data. Skipping seed.');
-        return;
-      }
+      // Wait a moment for tables to be created by synchronize
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const queryRunner = this.dataSource.createQueryRunner();
+      
+      try {
+        // Check if data already exists
+        const existingOrgs = await queryRunner.query('SELECT COUNT(*) as count FROM organizations');
+        if (parseInt(existingOrgs[0].count) > 0) {
+          this.logger.log('Database already has data. Skipping seed.');
+          return;
+        }
 
-      console.log('Seeding database with initial data...');
-      await this.seedDatabase(queryRunner);
-      console.log('Database seeding completed successfully!');
+        this.logger.log('Seeding database with initial data...');
+        await this.seedDatabase(queryRunner);
+        this.logger.log('Database seeding completed successfully!');
+      } finally {
+        await queryRunner.release();
+      }
     } catch (error) {
-      console.error('Error during seeding:', error);
-    } finally {
-      await queryRunner.release();
+      this.logger.error('Error during seeding:', error);
+      // Don't throw - let the app continue even if seeding fails
     }
   }
 

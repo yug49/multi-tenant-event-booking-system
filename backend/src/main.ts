@@ -1,15 +1,23 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  
+  logger.log('Starting application...');
+  logger.log(`Database host: ${process.env.DB_HOST || 'localhost'}`);
+  logger.log(`Port: ${process.env.PORT || 4000}`);
+  
   const app = await NestFactory.create(AppModule);
   
   // Enable CORS for frontend
   const allowedOrigins = process.env.CORS_ORIGIN 
     ? process.env.CORS_ORIGIN.split(',') 
     : ['http://localhost:3000'];
+  
+  logger.log(`CORS origins: ${allowedOrigins.join(', ')}`);
   
   app.enableCors({
     origin: allowedOrigins,
@@ -31,7 +39,8 @@ async function bootstrap() {
     }),
   );
   
-  await app.listen(process.env.PORT ?? 4000);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port, '0.0.0.0');
+  logger.log(`Application is running on port ${port}`);
 }
 bootstrap();
