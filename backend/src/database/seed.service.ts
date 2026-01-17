@@ -183,6 +183,22 @@ export class SeedService implements OnApplicationBootstrap {
         [event3Id, 'Startup Pitch Day', 'Startup pitch competition', event3Start, event3End, 100, org3Id],
       );
 
+      // Create an overlapping event (same time as event1) to cause double-booking
+      const overlapEvent1Id = uuidv4();
+      await queryRunner.query(
+        `INSERT INTO events (id, name, description, start_time, end_time, capacity, organization_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+        [overlapEvent1Id, 'Product Launch Meeting', 'New product launch planning', event1Start, event1End, 30, org1Id],
+      );
+
+      // Create another overlapping event for event2
+      const overlapEvent2Id = uuidv4();
+      const overlap2Start = new Date(event2Start.getTime() + 2 * 60 * 60 * 1000); // Starts 2 hours into event2
+      const overlap2End = new Date(event2Start.getTime() + 5 * 60 * 60 * 1000);   // Ends before event2
+      await queryRunner.query(
+        `INSERT INTO events (id, name, description, start_time, end_time, capacity, organization_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+        [overlapEvent2Id, 'VIP Networking Session', 'Exclusive networking for VIPs', overlap2Start, overlap2End, 25, org2Id],
+      );
+
       // Event Registrations
       await queryRunner.query(
         `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
@@ -192,6 +208,18 @@ export class SeedService implements OnApplicationBootstrap {
         `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
         [uuidv4(), event1Id, user2Id],
       );
+      
+      // DOUBLE-BOOKING: Alice registered to overlapping event (same time as event1)
+      await queryRunner.query(
+        `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
+        [uuidv4(), overlapEvent1Id, user1Id],
+      );
+      // DOUBLE-BOOKING: Bob also double-booked
+      await queryRunner.query(
+        `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
+        [uuidv4(), overlapEvent1Id, user2Id],
+      );
+      
       await queryRunner.query(
         `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
         [uuidv4(), event2Id, user4Id],
@@ -199,6 +227,12 @@ export class SeedService implements OnApplicationBootstrap {
       await queryRunner.query(
         `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
         [uuidv4(), event2Id, user5Id],
+      );
+      
+      // DOUBLE-BOOKING: David registered to overlapping VIP session
+      await queryRunner.query(
+        `INSERT INTO event_registrations (id, event_id, user_id, registered_at) VALUES ($1, $2, $3, NOW())`,
+        [uuidv4(), overlapEvent2Id, user4Id],
       );
 
       // External attendees
@@ -222,6 +256,23 @@ export class SeedService implements OnApplicationBootstrap {
         `INSERT INTO resource_allocations (id, event_id, resource_id, quantity_used, allocated_at) VALUES ($1, $2, $3, $4, NOW())`,
         [uuidv4(), event1Id, techLaptopsId, 5],
       );
+      
+      // RESOURCE VIOLATION: Same exclusive room allocated to overlapping event
+      await queryRunner.query(
+        `INSERT INTO resource_allocations (id, event_id, resource_id, allocated_at) VALUES ($1, $2, $3, NOW())`,
+        [uuidv4(), overlapEvent1Id, globalRoom1Id],
+      );
+      
+      // Shareable resource usage (no violation - within limit)
+      await queryRunner.query(
+        `INSERT INTO resource_allocations (id, event_id, resource_id, quantity_used, allocated_at) VALUES ($1, $2, $3, $4, NOW())`,
+        [uuidv4(), event1Id, globalEquip1Id, 2],
+      );
+      await queryRunner.query(
+        `INSERT INTO resource_allocations (id, event_id, resource_id, quantity_used, allocated_at) VALUES ($1, $2, $3, $4, NOW())`,
+        [uuidv4(), overlapEvent1Id, globalEquip1Id, 4],
+      );
+      // This causes SHAREABLE RESOURCE VIOLATION: 2 + 4 = 6 > 5 max concurrent
 
       await queryRunner.commitTransaction();
     } catch (error) {
