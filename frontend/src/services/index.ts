@@ -12,7 +12,8 @@ export const organizationService = {
 
 // Users
 export const userService = {
-  getAll: () => api.get<User[]>('/users'),
+  getAll: (organizationId?: string) => 
+    api.get<User[]>(`/users${organizationId ? `?organizationId=${organizationId}` : ''}`),
   getById: (id: string) => api.get<User>(`/users/${id}`),
   create: (data: Partial<User> & { password: string }) => api.post<User>('/users', data),
   update: (id: string, data: Partial<User>) => api.put<User>(`/users/${id}`, data),
