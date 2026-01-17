@@ -20,7 +20,15 @@ export class RegistrationsService {
   ) {}
 
   async registerUser(dto: CreateUserRegistrationDto): Promise<EventRegistration> {
+    const event = await this.eventRepository.findOne({
+      where: { id: dto.eventId },
+    });
+    if (!event) {
+      throw new NotFoundException(`Event with ID ${dto.eventId} not found`);
+    }
+
     await this.validateEventCapacity(dto.eventId);
+    await this.validateNoDoubleBooking(dto.userId, event);
 
     const existing = await this.registrationRepository.findOne({
       where: { eventId: dto.eventId, userId: dto.userId },
@@ -106,6 +114,28 @@ export class RegistrationsService {
 
     if (registrationCount >= event.capacity) {
       throw new BadRequestException('Event is at full capacity');
+    }
+  }
+
+  private async validateNoDoubleBooking(userId: string, newEvent: Event): Promise<void> {
+    // Find all events the user is registered for
+    const userRegistrations = await this.registrationRepository.find({
+      where: { userId },
+      relations: ['event'],
+    });
+
+    // Check for time overlap with existing registrations
+    for (const registration of userRegistrations) {
+      const existingEvent = registration.event;
+      // Overlap: (A.start < B.end) AND (A.end > B.start)
+      if (
+        newEvent.startTime < existingEvent.endTime &&
+        newEvent.endTime > existingEvent.startTime
+      ) {
+        throw new ConflictException(
+          `User is already registered for "${existingEvent.name}" which overlaps with this event`,
+        );
+      }
     }
   }
 }
