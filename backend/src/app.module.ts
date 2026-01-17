@@ -28,8 +28,12 @@ import { ReportsModule } from './modules/reports';
         password: configService.get('DB_PASSWORD', 'postgres'),
         database: configService.get('DB_DATABASE', 'event_booking'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Auto-create tables
-        logging: configService.get('NODE_ENV') === 'development',
+        synchronize: true,
+        logging: true,
+        // Railway PostgreSQL requires SSL
+        ssl: configService.get('NODE_ENV') === 'production' 
+          ? { rejectUnauthorized: false } 
+          : false,
       }),
       inject: [ConfigService],
     }),
