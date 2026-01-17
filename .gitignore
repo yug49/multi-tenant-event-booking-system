@@ -41,6 +41,3 @@ coverage/
 *.pem
 .cache/
 
-# Project documentation (keep local only)
-projectOverview.md
-projectDetails.md
