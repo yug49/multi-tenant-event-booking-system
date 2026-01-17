@@ -2,34 +2,11 @@
 
 A multi-tenant event booking platform where organizations can manage events, attendees, and shared resources with complex scheduling and allocation constraints.
 
-## Project Structure
+## Tech Stack
 
-```
-├── frontend/          # React + Vite + TypeScript
-│   ├── src/
-│   │   ├── components/    # Reusable UI components
-│   │   ├── pages/         # Page components
-│   │   ├── services/      # API service layer
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── context/       # React context providers
-│   │   └── types/         # TypeScript type definitions
-│   └── ...
-│
-├── backend/           # NestJS + TypeORM + PostgreSQL
-│   ├── src/
-│   │   ├── modules/       # Feature modules
-│   │   │   ├── organizations/
-│   │   │   ├── users/
-│   │   │   ├── events/
-│   │   │   ├── resources/
-│   │   │   ├── registrations/
-│   │   │   ├── allocations/
-│   │   │   └── reports/
-│   │   ├── common/        # Shared utilities
-│   │   └── database/      # Database configurations
-│   └── ...
-└── ...
-```
+- Backend: NestJS with TypeORM
+- Database: PostgreSQL
+- Frontend: React with Vite and TailwindCSS
 
 ## Prerequisites
 
@@ -39,78 +16,154 @@ A multi-tenant event booking platform where organizations can manage events, att
 
 ## Getting Started
 
-### 1. Clone the Repository
+### 1. Clone and Install
 
 ```bash
-git clone https://github.com/yug49/multi-tenant-event-booking-system.git
+git clone <repository-url>
 cd multi-tenant-event-booking-system
+
+# Install backend dependencies
+cd backend
+npm install
+
+# Install frontend dependencies
+cd ../frontend
+npm install
 ```
 
-### 2. Database Setup
+### 2. Configure Environment
 
-Create a PostgreSQL database:
+Create a `.env` file in the backend folder:
+
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
+DB_DATABASE=event_booking
+```
+
+### 3. Setup Database
+
+Create the database and run migrations:
 
 ```bash
+# Create database
 createdb event_booking
+
+# Run migrations
+cd backend
+npm run migration:run
 ```
 
-### 3. Backend Setup
+### 4. Seed Test Data (Optional)
 
 ```bash
 cd backend
-cp .env.example .env
-# Edit .env with your database credentials
-npm install
-npm run start:dev
+npm run seed
 ```
 
-The API will be available at `http://localhost:4000/api`
+This creates sample organizations, users, events, resources, and registrations with some intentional constraint violations for testing reports.
 
-### 4. Frontend Setup
+### 5. Start the Application
 
 ```bash
+# Start backend (runs on http://localhost:3000)
+cd backend
+npm run start:dev
+
+# In another terminal, start frontend (runs on http://localhost:5173)
 cd frontend
-npm install
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+## Project Structure
 
-## Tech Stack
+```
+backend/
+  src/
+    common/          # Shared entities, enums, filters
+    database/        # Migrations and seed script
+    modules/         # Feature modules
+      organizations/ # Organization management
+      users/         # User management
+      events/        # Event CRUD and scheduling
+      resources/     # Resource management
+      registrations/ # Attendee registrations
+      allocations/   # Resource allocations
+      reports/       # Analytics and violation reports
+    main.ts          # Application entry point
 
-### Frontend
-- React 18
-- TypeScript
-- Vite
-- React Router
-- Axios
-- TailwindCSS
+frontend/
+  src/
+    components/      # Reusable UI components
+    context/         # React context providers
+    pages/           # Page components
+    services/        # API service layer
 
-### Backend
-- NestJS
-- TypeORM
-- PostgreSQL
-- Class Validator
+docs/
+  API.md            # API endpoint documentation
+  DATABASE.md       # Database schema documentation
+```
 
 ## Features
 
-- **Multi-tenant architecture**: Organizations can manage their own events and resources
-- **Event management**: Create events with parent-child relationships for multi-session events
-- **Resource allocation**: Support for exclusive, shareable, and consumable resources
-- **Attendee management**: Register users and external attendees with check-in tracking
-- **Reporting**: Complex SQL queries for utilization and constraint violation detection
+### Multi-Tenant Structure
+- Users belong to one organization
+- Events and resources are scoped to organizations
+- Global resources can be shared across organizations
 
-## API Endpoints
+### Event Management
+- Create events with time ranges and capacity limits
+- Support for parent-child events (multi-session conferences)
+- Register internal users or external attendees by email
+- Track attendance with check-in timestamps
 
-| Module | Endpoint | Description |
-|--------|----------|-------------|
-| Organizations | `/api/organizations` | CRUD for organizations |
-| Users | `/api/users` | CRUD for users |
-| Events | `/api/events` | CRUD for events |
-| Resources | `/api/resources` | CRUD for resources |
-| Registrations | `/api/events/:id/registrations` | Event registrations |
-| Allocations | `/api/events/:id/allocations` | Resource allocations |
-| Reports | `/api/reports/*` | Various reports |
+### Resource Allocation
+- Exclusive: Cannot be double-booked in overlapping time slots
+- Shareable: Have concurrent usage limits
+- Consumable: Track quantity used per event
+
+### Reports (Raw SQL)
+- Double-booked users across overlapping events
+- Resource constraint violations by type
+- Resource utilization metrics with materialized view
+- Parent-child time boundary violations
+- External attendee counts
+
+## Documentation
+
+- [API Documentation](docs/API.md): Complete endpoint reference
+- [Database Schema](docs/DATABASE.md): Table definitions and constraints
+
+## Development
+
+### Running Migrations
+
+```bash
+cd backend
+npm run migration:run
+```
+
+### Reverting Migrations
+
+```bash
+cd backend
+npm run migration:revert
+```
+
+### Building for Production
+
+```bash
+# Backend
+cd backend
+npm run build
+npm run start:prod
+
+# Frontend
+cd frontend
+npm run build
+```
 
 ## License
 

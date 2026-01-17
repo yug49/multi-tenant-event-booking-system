@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Card, Modal, Input, Select, Table, Badge } from '../components/ui';
+import { Button, Card, Modal, Input, Select, Table, Badge, Alert, SkeletonTable } from '../components/ui';
 import type { Event } from '../types';
 import { eventService } from '../services';
 import { useOrganization } from '../context';
@@ -11,6 +11,8 @@ export default function Events() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -69,6 +71,7 @@ export default function Events() {
       parentEventId: '',
     });
     setEditingEvent(null);
+    setFormError(null);
   };
 
   const openCreateModal = () => {
@@ -78,6 +81,7 @@ export default function Events() {
 
   const openEditModal = (event: Event) => {
     setEditingEvent(event);
+    setFormError(null);
     setFormData({
       name: event.name,
       description: event.description || '',
@@ -92,6 +96,9 @@ export default function Events() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrganization) return;
+
+    setIsSaving(true);
+    setFormError(null);
 
     try {
       const eventData = {
@@ -114,9 +121,11 @@ export default function Events() {
       resetForm();
       fetchEvents();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to save event';
-      setError(message);
-      console.error('Error saving event:', err);
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to save event';
+      setFormError(errorMsg);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -204,15 +213,14 @@ export default function Events() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+        <Alert variant="error" onClose={() => setError(null)}>
           {error}
-          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
-        </div>
+        </Alert>
       )}
 
       <Card padding="none">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Loading events...</div>
+          <SkeletonTable rows={5} />
         ) : (
           <Table
             columns={columns}
@@ -235,16 +243,21 @@ export default function Events() {
             <Button variant="secondary" onClick={() => {
               setIsModalOpen(false);
               resetForm();
-            }}>
+            }} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
-              {editingEvent ? 'Save Changes' : 'Create Event'}
+            <Button onClick={handleSubmit} disabled={isSaving}>
+              {isSaving ? 'Saving...' : editingEvent ? 'Save Changes' : 'Create Event'}
             </Button>
           </>
         }
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && (
+            <Alert variant="error" onClose={() => setFormError(null)}>
+              {formError}
+            </Alert>
+          )}
           <Input
             label="Event Name"
             placeholder="Enter event name"

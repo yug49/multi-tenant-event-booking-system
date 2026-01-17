@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Card, Modal, Input, Select, Table, Badge } from '../components/ui';
+import { Button, Card, Modal, Input, Select, Table, Badge, Alert, SkeletonTable } from '../components/ui';
 import type { Resource, Event } from '../types';
 import { ResourceType } from '../types';
 import { resourceService, eventService, allocationService } from '../services';
@@ -134,9 +134,9 @@ export default function Resources() {
       resetForm();
       fetchData();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to save resource';
-      setError(message);
-      console.error('Error saving resource:', err);
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to save resource';
+      setError(errorMsg);
     }
   };
 
@@ -168,9 +168,9 @@ export default function Resources() {
       setSelectedResource(null);
       fetchData();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to allocate resource';
-      setError(message);
-      console.error('Error allocating resource:', err);
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to allocate resource';
+      setError(errorMsg);
     }
   };
 
@@ -258,10 +258,9 @@ export default function Resources() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+        <Alert variant="error" onClose={() => setError(null)}>
           {error}
-          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
-        </div>
+        </Alert>
       )}
 
       <div className="flex gap-4 text-xs text-gray-600">
@@ -281,7 +280,7 @@ export default function Resources() {
 
       <Card padding="none">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Loading resources...</div>
+          <SkeletonTable rows={5} />
         ) : (
           <Table
             columns={columns}

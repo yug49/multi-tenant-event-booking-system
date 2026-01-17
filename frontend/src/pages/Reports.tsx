@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Card, Table, Badge } from '../components/ui';
+import { Button, Card, Table, Badge, Alert, SkeletonTable } from '../components/ui';
 import { reportService } from '../services';
 import { useOrganization } from '../context';
 
@@ -48,7 +48,6 @@ export default function Reports() {
       setExternalAttendees(externalRes.data);
     } catch (err) {
       setError('Failed to fetch reports');
-      console.error('Error fetching reports:', err);
     } finally {
       setIsLoading(false);
     }
@@ -116,10 +115,9 @@ export default function Reports() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+        <Alert variant="error" onClose={() => setError(null)}>
           {error}
-          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
-        </div>
+        </Alert>
       )}
 
       <div className="border-b border-gray-200">
@@ -148,7 +146,7 @@ export default function Reports() {
             <p className="text-xs text-gray-500 mt-1">Users registered for events with conflicting schedules</p>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <SkeletonTable rows={3} />
           ) : (
             <Table
               columns={[
@@ -203,7 +201,7 @@ export default function Reports() {
             <p className="text-xs text-gray-500 mt-1">Resources with allocation conflicts or exceeded limits</p>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <SkeletonTable rows={3} />
           ) : (
             <Table
               columns={[
@@ -259,7 +257,7 @@ export default function Reports() {
             <p className="text-xs text-gray-500 mt-1">Usage metrics and efficiency analysis</p>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <SkeletonTable rows={3} />
           ) : (
             <Table
               columns={[
@@ -328,7 +326,7 @@ export default function Reports() {
             <p className="text-xs text-gray-500 mt-1">Child sessions that exceed parent event boundaries</p>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <SkeletonTable rows={3} />
           ) : (
             <Table
               columns={[
@@ -384,7 +382,7 @@ export default function Reports() {
             <p className="text-xs text-gray-500 mt-1">Events with more than 5 external attendees</p>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <SkeletonTable rows={3} />
           ) : (
             <Table
               columns={[

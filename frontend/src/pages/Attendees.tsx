@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Card, Modal, Input, Select, Table, Badge } from '../components/ui';
+import { Button, Card, Modal, Input, Select, Table, Badge, Alert, SkeletonTable } from '../components/ui';
 import type { Event, User, EventRegistration } from '../types';
 import { eventService, userService, registrationService } from '../services';
 import { useOrganization } from '../context';
@@ -93,9 +93,9 @@ export default function Attendees() {
       setFormData({ eventId: '', userId: '', externalEmail: '' });
       fetchData();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to register user';
-      setError(message);
-      console.error('Error registering user:', err);
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to register user';
+      setError(errorMsg);
     }
   };
 
@@ -110,9 +110,9 @@ export default function Attendees() {
       setFormData({ eventId: '', userId: '', externalEmail: '' });
       fetchData();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to register external attendee';
-      setError(message);
-      console.error('Error registering external:', err);
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to register external attendee';
+      setError(errorMsg);
     }
   };
 
@@ -121,9 +121,9 @@ export default function Attendees() {
       await registrationService.checkin(attendee.id);
       fetchData();
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Failed to check in';
-      setError(message);
-      console.error('Error checking in:', err);
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to check in';
+      setError(errorMsg);
     }
   };
 
@@ -132,9 +132,10 @@ export default function Attendees() {
     try {
       await registrationService.cancel(attendee.id);
       fetchData();
-    } catch (err) {
-      setError('Failed to cancel registration');
-      console.error('Error canceling registration:', err);
+    } catch (err: any) {
+      const message = err.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to cancel registration';
+      setError(errorMsg);
     }
   };
 
@@ -231,10 +232,9 @@ export default function Attendees() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 px-4 py-3 rounded-md">
+        <Alert variant="error" onClose={() => setError(null)}>
           {error}
-          <button className="ml-2 text-red-500" onClick={() => setError(null)}>×</button>
-        </div>
+        </Alert>
       )}
 
       <div className="flex items-center justify-between">
@@ -265,7 +265,7 @@ export default function Attendees() {
 
       <Card padding="none">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Loading attendees...</div>
+          <SkeletonTable rows={5} />
         ) : (
           <Table
             columns={columns}
