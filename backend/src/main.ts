@@ -7,7 +7,13 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   logger.log('Starting application...');
+  logger.log(`NODE_ENV: ${process.env.NODE_ENV}`);
   logger.log(`Database host: ${process.env.DB_HOST || 'localhost'}`);
+  logger.log(`Database port: ${process.env.DB_PORT || '5432'}`);
+  logger.log(`Database name: ${process.env.DB_DATABASE || 'event_booking'}`);
+  logger.log(`Database user: ${process.env.DB_USERNAME || 'postgres'}`);
+  logger.log(`Database password set: ${process.env.DB_PASSWORD ? 'yes' : 'no'}`);
+  logger.log(`All env keys: ${Object.keys(process.env).filter(k => k.startsWith('DB_') || k.startsWith('PG') || k === 'DATABASE_URL').join(', ')}`);}
   logger.log(`Port: ${process.env.PORT || 4000}`);
   
   const app = await NestFactory.create(AppModule);

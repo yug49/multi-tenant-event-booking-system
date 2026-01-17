@@ -16,21 +16,20 @@ import { ReportsModule } from './modules/reports';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
+        port: parseInt(configService.get('DB_PORT', '5432'), 10),
         username: configService.get('DB_USERNAME', 'postgres'),
         password: configService.get('DB_PASSWORD', 'postgres'),
         database: configService.get('DB_DATABASE', 'event_booking'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        autoLoadEntities: true,
         synchronize: true,
         logging: true,
-        // Railway PostgreSQL requires SSL
         ssl: configService.get('NODE_ENV') === 'production' 
           ? { rejectUnauthorized: false } 
           : false,
