@@ -13,7 +13,7 @@ export class Resource extends BaseEntity {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ length: 500, nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   description: string;
 
   @Column({
@@ -22,7 +22,7 @@ export class Resource extends BaseEntity {
   })
   type: ResourceType;
 
-  @Column({ name: 'organization_id', nullable: true })
+  @Column({ type: 'uuid', name: 'organization_id', nullable: true })
   organizationId: string | null;
 
   @ManyToOne(() => Organization, { onDelete: 'CASCADE', nullable: true })
@@ -32,9 +32,9 @@ export class Resource extends BaseEntity {
   @Column({ name: 'is_global', default: false })
   isGlobal: boolean;
 
-  @Column({ name: 'max_concurrent_usage', nullable: true })
+  @Column({ type: 'int', name: 'max_concurrent_usage', nullable: true })
   maxConcurrentUsage: number | null;
 
-  @Column({ name: 'available_quantity', nullable: true })
+  @Column({ type: 'int', name: 'available_quantity', nullable: true })
   availableQuantity: number | null;
 }

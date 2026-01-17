@@ -11,7 +11,7 @@ export class Event extends BaseEntity {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ length: 1000, nullable: true })
+  @Column({ type: 'varchar', length: 1000, nullable: true })
   description: string;
 
   @Column({ name: 'start_time', type: 'timestamp with time zone' })
@@ -30,7 +30,7 @@ export class Event extends BaseEntity {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 
-  @Column({ name: 'parent_event_id', nullable: true })
+  @Column({ type: 'uuid', name: 'parent_event_id', nullable: true })
   parentEventId: string | null;
 
   @ManyToOne(() => Event, { onDelete: 'CASCADE', nullable: true })

@@ -16,14 +16,14 @@ export class EventRegistration extends BaseEntity {
   @JoinColumn({ name: 'event_id' })
   event: Event;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ type: 'uuid', name: 'user_id', nullable: true })
   userId: string | null;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'user_id' })
   user: User | null;
 
-  @Column({ name: 'external_email', length: 255, nullable: true })
+  @Column({ type: 'varchar', name: 'external_email', length: 255, nullable: true })
   externalEmail: string | null;
 
   @Column({ name: 'checkin_time', type: 'timestamp with time zone', nullable: true })

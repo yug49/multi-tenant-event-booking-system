@@ -132,7 +132,8 @@ export class InitialSchema1737100000000 implements MigrationInterface {
         r.id AS resource_id,
         r.name AS resource_name,
         r.type AS resource_type,
-        COALESCE(r.organization_id, 'global') AS organization_id,
+        r.organization_id,
+        r.is_global,
         COUNT(DISTINCT ra.event_id) AS total_allocations,
         COALESCE(SUM(
           EXTRACT(EPOCH FROM (e.end_time - e.start_time)) / 3600
@@ -141,7 +142,7 @@ export class InitialSchema1737100000000 implements MigrationInterface {
       FROM resources r
       LEFT JOIN resource_allocations ra ON r.id = ra.resource_id
       LEFT JOIN events e ON ra.event_id = e.id
-      GROUP BY r.id, r.name, r.type, r.organization_id
+      GROUP BY r.id, r.name, r.type, r.organization_id, r.is_global
     `);
 
     // Create index on materialized view

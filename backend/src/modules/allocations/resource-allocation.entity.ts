@@ -23,7 +23,7 @@ export class ResourceAllocation extends BaseEntity {
   @JoinColumn({ name: 'resource_id' })
   resource: Resource;
 
-  @Column({ name: 'quantity_used', nullable: true })
+  @Column({ type: 'int', name: 'quantity_used', nullable: true })
   quantityUsed: number | null;
 
   @Column({ name: 'allocated_at', type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
