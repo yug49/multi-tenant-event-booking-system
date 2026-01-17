@@ -9,6 +9,7 @@ import { ResourcesModule } from './modules/resources';
 import { EventsModule } from './modules/events';
 import { RegistrationsModule } from './modules/registrations';
 import { AllocationsModule } from './modules/allocations';
+import { ReportsModule } from './modules/reports';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AllocationsModule } from './modules/allocations';
     EventsModule,
     RegistrationsModule,
     AllocationsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
