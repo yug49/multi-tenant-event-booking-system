@@ -16,7 +16,7 @@ const dataSource = new DataSource({
 });
 
 async function seed() {
-  console.log('🌱 Starting database seed...\n');
+  console.log('Starting database seed...\n');
 
   await dataSource.initialize();
   const queryRunner = dataSource.createQueryRunner();
@@ -25,7 +25,7 @@ async function seed() {
     await queryRunner.startTransaction();
 
     // Clear existing data in reverse order of dependencies
-    console.log('🧹 Clearing existing data...');
+    console.log('Clearing existing data...');
     await queryRunner.query('DELETE FROM resource_allocations');
     await queryRunner.query('DELETE FROM event_registrations');
     await queryRunner.query('DELETE FROM events');
@@ -36,7 +36,7 @@ async function seed() {
     // ============================================
     // 1. ORGANIZATIONS
     // ============================================
-    console.log('📁 Creating organizations...');
+    console.log('Creating organizations...');
 
     const org1Id = uuidv4();
     const org2Id = uuidv4();
@@ -58,7 +58,7 @@ async function seed() {
     // ============================================
     // 2. USERS (across organizations)
     // ============================================
-    console.log('👥 Creating users...');
+    console.log('Creating users...');
 
     const user1Id = uuidv4();
     const user2Id = uuidv4();
@@ -107,7 +107,7 @@ async function seed() {
     // ============================================
     // 3. RESOURCES (various types + global)
     // ============================================
-    console.log('🔧 Creating resources...');
+    console.log('Creating resources...');
 
     // TechCorp resources
     const room1Id = uuidv4();
@@ -172,7 +172,7 @@ async function seed() {
     // ============================================
     // 4. EVENTS (with parent-child relationships)
     // ============================================
-    console.log('📅 Creating events...');
+    console.log('Creating events...');
 
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -308,7 +308,7 @@ async function seed() {
     // ============================================
     // 5. EVENT REGISTRATIONS (including double-bookings)
     // ============================================
-    console.log('📝 Creating registrations...');
+    console.log('Creating registrations...');
 
     // Alice: Double-booked - registered for both morning session AND team meeting (overlapping!)
     await queryRunner.query(
@@ -398,7 +398,7 @@ async function seed() {
     // ============================================
     // 6. RESOURCE ALLOCATIONS (including violations)
     // ============================================
-    console.log('🔗 Creating resource allocations...');
+    console.log('Creating resource allocations...');
 
     // VIOLATION: Conference Room A allocated to both morning session AND team meeting (overlapping!)
     await queryRunner.query(
@@ -491,15 +491,15 @@ async function seed() {
 
     await queryRunner.commitTransaction();
 
-    console.log('\n✅ Database seeded successfully!\n');
-    console.log('📊 Seed Summary:');
+    console.log('\nDatabase seeded successfully!\n');
+    console.log('Seed Summary:');
     console.log('   - 3 Organizations');
     console.log('   - 7 Users across organizations');
     console.log('   - 8 Resources (6 org-specific + 2 global)');
     console.log('   - 10 Events (including parent-child relationships)');
     console.log('   - Multiple registrations (including double-bookings)');
     console.log('   - Multiple allocations (including violations)');
-    console.log('\n🧪 Test Violations Included:');
+    console.log('\nTest Violations Included:');
     console.log('   - Double-booked users (Alice, Bob)');
     console.log('   - Exclusive resource conflict (Conference Room A)');
     console.log('   - Shareable resource over-allocation (Projector Set)');
@@ -507,7 +507,7 @@ async function seed() {
     console.log('   - Parent-child time boundary violation (Closing Panel)');
     console.log('   - Events with many external attendees (Gala - 6 externals)');
   } catch (error) {
-    console.error('❌ Seed failed:', error);
+    console.error('Seed failed:', error);
     await queryRunner.rollbackTransaction();
     throw error;
   } finally {

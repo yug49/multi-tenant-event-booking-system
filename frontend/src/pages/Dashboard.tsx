@@ -90,7 +90,7 @@ export default function Dashboard() {
               href="/events"
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <div className="text-lg mb-1">◉</div>
+              <div className="text-lg mb-1">E</div>
               <div className="text-sm font-medium text-gray-900">Create Event</div>
               <div className="text-xs text-gray-500">Schedule a new event</div>
             </a>
@@ -98,7 +98,7 @@ export default function Dashboard() {
               href="/resources"
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <div className="text-lg mb-1">▣</div>
+              <div className="text-lg mb-1">R</div>
               <div className="text-sm font-medium text-gray-900">Add Resource</div>
               <div className="text-xs text-gray-500">Manage equipment & rooms</div>
             </a>
@@ -106,7 +106,7 @@ export default function Dashboard() {
               href="/attendees"
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <div className="text-lg mb-1">◎</div>
+              <div className="text-lg mb-1">A</div>
               <div className="text-sm font-medium text-gray-900">Register Attendee</div>
               <div className="text-xs text-gray-500">Add users to events</div>
             </a>
@@ -114,7 +114,7 @@ export default function Dashboard() {
               href="/reports"
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <div className="text-lg mb-1">▤</div>
+              <div className="text-lg mb-1">P</div>
               <div className="text-sm font-medium text-gray-900">View Reports</div>
               <div className="text-xs text-gray-500">Analytics & violations</div>
             </a>
@@ -126,12 +126,12 @@ export default function Dashboard() {
       {MOCK_STATS.violations > 0 && (
         <Card className="border-red-200 bg-red-50">
           <div className="flex items-start gap-3">
-            <div className="text-red-600 text-lg">⚠</div>
+            <div className="text-red-600 text-lg font-bold">!</div>
             <div>
               <h3 className="text-sm font-medium text-red-900">Attention Required</h3>
               <p className="text-sm text-red-700 mt-1">
                 There are {MOCK_STATS.violations} resource constraint violations that need your attention.
-                <a href="/reports" className="underline ml-1">View details →</a>
+                <a href="/reports" className="underline ml-1">View details</a>
               </p>
             </div>
           </div>

@@ -209,7 +209,7 @@ export default function Resources() {
         if (resource.type === ResourceType.CONSUMABLE) {
           return <span className="text-sm">{resource.availableQuantity} available</span>;
         }
-        return <span className="text-sm text-gray-400">—</span>;
+        return <span className="text-sm text-gray-400">-</span>;
       },
     },
     {

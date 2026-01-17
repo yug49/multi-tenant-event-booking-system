@@ -224,7 +224,7 @@ export default function Reports() {
                     <div className="text-sm">
                       {item.type === 'EXCLUSIVE_OVERLAP' && (
                         <span>
-                          {item.event1_name} ↔ {item.event2_name}
+                          {item.event1_name} / {item.event2_name}
                         </span>
                       )}
                       {item.type === 'SHAREABLE_EXCEEDED' && (
