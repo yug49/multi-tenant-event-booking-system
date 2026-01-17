@@ -1,0 +1,5 @@
+export enum ResourceType {
+  EXCLUSIVE = 'EXCLUSIVE',
+  SHAREABLE = 'SHAREABLE',
+  CONSUMABLE = 'CONSUMABLE',
+}
