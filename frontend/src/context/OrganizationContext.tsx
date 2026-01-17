@@ -5,10 +5,10 @@ import { organizationService } from '../services';
 interface OrganizationContextType {
   organizations: Organization[];
   selectedOrganization: Organization | null;
-  setSelectedOrganization: (org: Organization) => void;
+  setSelectedOrganization: (org: Organization | null) => void;
   isLoading: boolean;
   error: string | null;
-  refreshOrganizations: () => Promise<void>;
+  fetchOrganizations: () => Promise<void>;
 }
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
@@ -46,9 +46,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     fetchOrganizations();
   }, [fetchOrganizations]);
 
-  const setSelectedOrganization = (org: Organization) => {
+  const setSelectedOrganization = (org: Organization | null) => {
     setSelectedOrganizationState(org);
-    localStorage.setItem('selectedOrganizationId', org.id);
+    if (org) {
+      localStorage.setItem('selectedOrganizationId', org.id);
+    } else {
+      localStorage.removeItem('selectedOrganizationId');
+    }
   };
 
   return (
@@ -59,7 +63,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setSelectedOrganization,
         isLoading,
         error,
-        refreshOrganizations: fetchOrganizations,
+        fetchOrganizations,
       }}
     >
       {children}

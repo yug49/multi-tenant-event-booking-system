@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import OrganizationSwitcher from './OrganizationSwitcher';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: 'D' },
+  { to: '/', label: 'Organizations', icon: 'O' },
   { to: '/events', label: 'Events', icon: 'E' },
   { to: '/resources', label: 'Resources', icon: 'R' },
   { to: '/attendees', label: 'Attendees', icon: 'A' },
