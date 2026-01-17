@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { SeedService } from './database/seed.service';
 import { OrganizationsModule } from './modules/organizations';
 import { UsersModule } from './modules/users';
 import { ResourcesModule } from './modules/resources';
@@ -27,7 +28,7 @@ import { ReportsModule } from './modules/reports';
         password: configService.get('DB_PASSWORD', 'postgres'),
         database: configService.get('DB_DATABASE', 'event_booking'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('NODE_ENV') !== 'production',
+        synchronize: true, // Auto-create tables
         logging: configService.get('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
@@ -41,6 +42,6 @@ import { ReportsModule } from './modules/reports';
     ReportsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, SeedService],
 })
 export class AppModule {}

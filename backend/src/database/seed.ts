@@ -11,8 +11,9 @@ const dataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'event_booking',
-  synchronize: false,
+  synchronize: true, // Create tables if they don't exist
   logging: false,
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
 });
 
 async function seed() {
@@ -22,16 +23,18 @@ async function seed() {
   const queryRunner = dataSource.createQueryRunner();
 
   try {
+    // Check if data already exists
+    const existingOrgs = await queryRunner.query('SELECT COUNT(*) as count FROM organizations');
+    if (parseInt(existingOrgs[0].count) > 0) {
+      console.log('Database already has data. Skipping seed.');
+      await dataSource.destroy();
+      return;
+    }
+
     await queryRunner.startTransaction();
 
-    // Clear existing data in reverse order of dependencies
-    console.log('Clearing existing data...');
-    await queryRunner.query('DELETE FROM resource_allocations');
-    await queryRunner.query('DELETE FROM event_registrations');
-    await queryRunner.query('DELETE FROM events');
-    await queryRunner.query('DELETE FROM resources');
-    await queryRunner.query('DELETE FROM users');
-    await queryRunner.query('DELETE FROM organizations');
+    // No need to clear - we checked that tables are empty
+    console.log('Seeding fresh database...');
 
     // ============================================
     // 1. ORGANIZATIONS

@@ -34,13 +34,6 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Copy source files needed for seeding (ts-node will compile on the fly)
-COPY backend/src ./src
-COPY backend/tsconfig.json ./tsconfig.json
-
-# Install ts-node and typescript for running seed script
-RUN npm install ts-node typescript tsconfig-paths
-
 # Set ownership
 RUN chown -R nestjs:nodejs /app
 
@@ -54,5 +47,5 @@ EXPOSE 4000
 ENV NODE_ENV=production
 ENV PORT=4000
 
-# Start script that runs migrations, seeds, then starts the app
-CMD ["sh", "-c", "npm run seed && node dist/main"]
+# Start the application
+CMD ["node", "dist/main"]
