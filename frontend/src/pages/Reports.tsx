@@ -34,11 +34,11 @@ export default function Reports() {
         parentChildRes,
         externalRes,
       ] = await Promise.all([
-        reportService.getDoubleBookedUsers(),
-        reportService.getResourceViolations(),
+        reportService.getDoubleBookedUsers(selectedOrganization?.id),
+        reportService.getResourceViolations(selectedOrganization?.id),
         reportService.getResourceUtilization(selectedOrganization?.id),
-        reportService.getParentChildViolations(),
-        reportService.getExternalAttendeeReport(5),
+        reportService.getParentChildViolations(selectedOrganization?.id),
+        reportService.getExternalAttendeeReport(5, selectedOrganization?.id),
       ]);
 
       setDoubleBooked(doubleBookedRes.data);

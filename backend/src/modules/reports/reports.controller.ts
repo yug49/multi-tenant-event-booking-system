@@ -10,8 +10,10 @@ export class ReportsController {
    * Find all users who are double-booked across overlapping events
    */
   @Get('double-booked-users')
-  async getDoubleBookedUsers() {
-    return this.reportsService.getDoubleBookedUsers();
+  async getDoubleBookedUsers(
+    @Query('organizationId') organizationId?: string,
+  ) {
+    return this.reportsService.getDoubleBookedUsers(organizationId);
   }
 
   /**
@@ -19,8 +21,10 @@ export class ReportsController {
    * Get all resource constraint violations
    */
   @Get('resource-violations')
-  async getResourceViolations() {
-    return this.reportsService.getAllResourceViolations();
+  async getResourceViolations(
+    @Query('organizationId') organizationId?: string,
+  ) {
+    return this.reportsService.getAllResourceViolations(organizationId);
   }
 
   /**
@@ -75,8 +79,10 @@ export class ReportsController {
    * Find parent events whose child sessions violate time boundaries
    */
   @Get('parent-child-violations')
-  async getParentChildViolations() {
-    return this.reportsService.getParentChildTimeViolations();
+  async getParentChildViolations(
+    @Query('organizationId') organizationId?: string,
+  ) {
+    return this.reportsService.getParentChildTimeViolations(organizationId);
   }
 
   /**
@@ -86,8 +92,9 @@ export class ReportsController {
   @Get('external-attendees')
   async getExternalAttendeeViolations(
     @Query('threshold', new DefaultValuePipe(5), ParseIntPipe) threshold: number,
+    @Query('organizationId') organizationId?: string,
   ) {
-    return this.reportsService.getExternalAttendeeThresholdViolations(threshold);
+    return this.reportsService.getExternalAttendeeThresholdViolations(threshold, organizationId);
   }
 
   /**

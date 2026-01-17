@@ -16,9 +16,6 @@ export default function Layout() {
       <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 z-50">
         <div className="h-full px-4 flex justify-between items-center">
           <div className="flex items-center gap-8">
-            <h1 className="text-base font-semibold text-gray-900 tracking-tight">
-              EventBook
-            </h1>
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map((item) => (
                 <NavLink

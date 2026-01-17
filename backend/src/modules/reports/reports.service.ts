@@ -9,7 +9,12 @@ export class ReportsService {
    * Find all users who are double-booked across overlapping events
    * Uses interval overlap logic: (A.start < B.end) AND (A.end > B.start)
    */
-  async getDoubleBookedUsers(): Promise<any[]> {
+  async getDoubleBookedUsers(organizationId?: string): Promise<any[]> {
+    const whereClause = organizationId
+      ? 'AND e1.organization_id = $1 AND e2.organization_id = $1'
+      : '';
+    const params = organizationId ? [organizationId] : [];
+
     const query = `
       SELECT DISTINCT
         u.id AS user_id,
@@ -31,16 +36,22 @@ export class ReportsService {
       WHERE e1.id < e2.id
         AND e1.start_time < e2.end_time
         AND e1.end_time > e2.start_time
+        ${whereClause}
       ORDER BY u.name, e1.start_time
     `;
-    return this.dataSource.query(query);
+    return this.dataSource.query(query, params);
   }
 
   /**
    * Find all events with over-allocated shareable resources
    * (concurrent usage exceeds max_concurrent_usage)
    */
-  async getOverAllocatedShareableResources(): Promise<any[]> {
+  async getOverAllocatedShareableResources(organizationId?: string): Promise<any[]> {
+    const whereClause = organizationId
+      ? 'AND (r.organization_id = $1 OR r.is_global = true)'
+      : '';
+    const params = organizationId ? [organizationId] : [];
+
     const query = `
       SELECT
         r.id AS resource_id,
@@ -69,15 +80,21 @@ export class ReportsService {
       INNER JOIN events e ON e.id = concurrent.event_id
       WHERE r.type = 'SHAREABLE'
         AND concurrent.concurrent_count >= r.max_concurrent_usage
+        ${whereClause}
       ORDER BY r.name, e.start_time
     `;
-    return this.dataSource.query(query);
+    return this.dataSource.query(query, params);
   }
 
   /**
    * Find all events with double-booked exclusive resources
    */
-  async getDoubleBookedExclusiveResources(): Promise<any[]> {
+  async getDoubleBookedExclusiveResources(organizationId?: string): Promise<any[]> {
+    const whereClause = organizationId
+      ? 'AND (r.organization_id = $1 OR r.is_global = true)'
+      : '';
+    const params = organizationId ? [organizationId] : [];
+
     const query = `
       SELECT
         r.id AS resource_id,
@@ -99,15 +116,21 @@ export class ReportsService {
         AND ra1.event_id < ra2.event_id
         AND e1.start_time < e2.end_time
         AND e1.end_time > e2.start_time
+        ${whereClause}
       ORDER BY r.name, e1.start_time
     `;
-    return this.dataSource.query(query);
+    return this.dataSource.query(query, params);
   }
 
   /**
    * Find all consumable resources where total allocated exceeds available quantity
    */
-  async getOverAllocatedConsumables(): Promise<any[]> {
+  async getOverAllocatedConsumables(organizationId?: string): Promise<any[]> {
+    const whereClause = organizationId
+      ? 'AND (r.organization_id = $1 OR r.is_global = true)'
+      : '';
+    const params = organizationId ? [organizationId] : [];
+
     const query = `
       SELECT
         r.id AS resource_id,
@@ -118,25 +141,26 @@ export class ReportsService {
       FROM resources r
       INNER JOIN resource_allocations ra ON ra.resource_id = r.id
       WHERE r.type = 'CONSUMABLE'
+        ${whereClause}
       GROUP BY r.id, r.name, r.available_quantity
       HAVING SUM(ra.quantity_used) > r.available_quantity
       ORDER BY over_allocation DESC
     `;
-    return this.dataSource.query(query);
+    return this.dataSource.query(query, params);
   }
 
   /**
    * Get all resource constraint violations combined
    */
-  async getAllResourceViolations(): Promise<{
+  async getAllResourceViolations(organizationId?: string): Promise<{
     shareableViolations: any[];
     exclusiveViolations: any[];
     consumableViolations: any[];
   }> {
     const [shareableViolations, exclusiveViolations, consumableViolations] = await Promise.all([
-      this.getOverAllocatedShareableResources(),
-      this.getDoubleBookedExclusiveResources(),
-      this.getOverAllocatedConsumables(),
+      this.getOverAllocatedShareableResources(organizationId),
+      this.getDoubleBookedExclusiveResources(organizationId),
+      this.getOverAllocatedConsumables(organizationId),
     ]);
 
     return {
@@ -246,70 +270,47 @@ export class ReportsService {
 
   /**
    * Find parent events whose child sessions violate time boundaries
-   * Uses recursive CTE to traverse event hierarchy
+   * Checks immediate parent-child relationships only
    */
-  async getParentChildTimeViolations(): Promise<any[]> {
+  async getParentChildTimeViolations(organizationId?: string): Promise<any[]> {
+    const whereClause = organizationId
+      ? 'WHERE e.organization_id = $1 AND (e.start_time < p.start_time OR e.end_time > p.end_time)'
+      : 'WHERE e.start_time < p.start_time OR e.end_time > p.end_time';
+    const params = organizationId ? [organizationId] : [];
+
     const query = `
-      WITH RECURSIVE event_hierarchy AS (
-        -- Base case: all events with a parent
-        SELECT
-          e.id AS child_id,
-          e.name AS child_name,
-          e.start_time AS child_start,
-          e.end_time AS child_end,
-          e.parent_event_id,
-          p.id AS root_parent_id,
-          p.name AS root_parent_name,
-          p.start_time AS parent_start,
-          p.end_time AS parent_end,
-          1 AS depth
-        FROM events e
-        INNER JOIN events p ON p.id = e.parent_event_id
-        
-        UNION ALL
-        
-        -- Recursive case: traverse up the hierarchy
-        SELECT
-          eh.child_id,
-          eh.child_name,
-          eh.child_start,
-          eh.child_end,
-          p.parent_event_id,
-          p.id AS root_parent_id,
-          p.name AS root_parent_name,
-          p.start_time AS parent_start,
-          p.end_time AS parent_end,
-          eh.depth + 1
-        FROM event_hierarchy eh
-        INNER JOIN events p ON p.id = eh.parent_event_id
-        WHERE eh.parent_event_id IS NOT NULL
-      )
       SELECT DISTINCT
-        root_parent_id AS parent_id,
-        root_parent_name AS parent_name,
-        parent_start,
-        parent_end,
-        child_id,
-        child_name,
-        child_start,
-        child_end,
-        depth AS hierarchy_depth,
+        p.id AS parent_id,
+        p.name AS parent_name,
+        p.start_time AS parent_start,
+        p.end_time AS parent_end,
+        e.id AS child_id,
+        e.name AS child_name,
+        e.start_time AS child_start,
+        e.end_time AS child_end,
+        1 AS hierarchy_depth,
         CASE
-          WHEN child_start < parent_start THEN 'CHILD_STARTS_BEFORE_PARENT'
-          WHEN child_end > parent_end THEN 'CHILD_ENDS_AFTER_PARENT'
+          WHEN e.start_time < p.start_time THEN 'CHILD_STARTS_BEFORE_PARENT'
+          WHEN e.end_time > p.end_time THEN 'CHILD_ENDS_AFTER_PARENT'
           ELSE 'UNKNOWN'
         END AS violation_type
-      FROM event_hierarchy
-      WHERE child_start < parent_start OR child_end > parent_end
+      FROM events e
+      INNER JOIN events p ON p.id = e.parent_event_id
+      ${whereClause}
       ORDER BY parent_name, child_name
     `;
-    return this.dataSource.query(query);
+    return this.dataSource.query(query, params);
   }
 
   /**
    * List events with external attendees exceeding a threshold
    */
-  async getExternalAttendeeThresholdViolations(threshold: number = 5): Promise<any[]> {
+  async getExternalAttendeeThresholdViolations(threshold: number = 5, organizationId?: string): Promise<any[]> {
+    const havingClause = organizationId
+      ? 'HAVING COUNT(CASE WHEN r.external_email IS NOT NULL THEN 1 END) > $1 AND e.organization_id = $2'
+      : 'HAVING COUNT(CASE WHEN r.external_email IS NOT NULL THEN 1 END) > $1';
+    const params = organizationId ? [threshold, organizationId] : [threshold];
+
     const query = `
       SELECT
         e.id AS event_id,
@@ -326,10 +327,10 @@ export class ReportsService {
       INNER JOIN organizations o ON o.id = e.organization_id
       LEFT JOIN event_registrations r ON r.event_id = e.id
       GROUP BY e.id, e.name, e.start_time, e.end_time, e.capacity, o.id, o.name
-      HAVING COUNT(CASE WHEN r.external_email IS NOT NULL THEN 1 END) > $1
+      ${havingClause}
       ORDER BY external_attendee_count DESC
     `;
-    return this.dataSource.query(query, [threshold]);
+    return this.dataSource.query(query, params);
   }
 
   /**

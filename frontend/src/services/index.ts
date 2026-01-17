@@ -60,13 +60,16 @@ export const allocationService = {
 
 // Reports
 export const reportService = {
-  getDoubleBookedUsers: () => api.get('/reports/double-booked-users'),
-  getResourceViolations: () => api.get('/reports/resource-violations'),
+  getDoubleBookedUsers: (organizationId?: string) => 
+    api.get(`/reports/double-booked-users${organizationId ? `?organizationId=${organizationId}` : ''}`),
+  getResourceViolations: (organizationId?: string) => 
+    api.get(`/reports/resource-violations${organizationId ? `?organizationId=${organizationId}` : ''}`),
   getResourceUtilization: (organizationId?: string) => 
     api.get(`/reports/resource-utilization${organizationId ? `?organizationId=${organizationId}` : ''}`),
   getPeakConcurrentUsage: () => api.get('/reports/peak-concurrent-usage'),
-  getParentChildViolations: () => api.get('/reports/parent-child-violations'),
-  getExternalAttendeeReport: (threshold: number) =>
-    api.get(`/reports/external-attendees?threshold=${threshold}`),
+  getParentChildViolations: (organizationId?: string) =>
+    api.get(`/reports/parent-child-violations${organizationId ? `?organizationId=${organizationId}` : ''}`),
+  getExternalAttendeeReport: (threshold: number, organizationId?: string) =>
+    api.get(`/reports/external-attendees?threshold=${threshold}${organizationId ? `&organizationId=${organizationId}` : ''}`),
   refreshUtilizationView: () => api.post('/reports/refresh-utilization-view'),
 };
