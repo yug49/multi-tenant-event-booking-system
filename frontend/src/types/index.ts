@@ -15,11 +15,13 @@ export interface User {
 }
 
 // Resource Types
-export enum ResourceType {
-  EXCLUSIVE = 'EXCLUSIVE',
-  SHAREABLE = 'SHAREABLE',
-  CONSUMABLE = 'CONSUMABLE',
-}
+export const ResourceType = {
+  EXCLUSIVE: 'EXCLUSIVE',
+  SHAREABLE: 'SHAREABLE',
+  CONSUMABLE: 'CONSUMABLE',
+} as const;
+
+export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
 
 export interface Resource {
   id: string;

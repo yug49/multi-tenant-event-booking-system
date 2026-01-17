@@ -12,13 +12,13 @@ const OrganizationContext = createContext<OrganizationContextType | undefined>(u
 
 // Mock data for initial development
 const MOCK_ORGANIZATIONS: Organization[] = [
-  { id: '1', name: 'Acme Corporation', createdAt: new Date().toISOString() },
-  { id: '2', name: 'TechStart Inc', createdAt: new Date().toISOString() },
-  { id: '3', name: 'Global Events Ltd', createdAt: new Date().toISOString() },
+  { id: '1', name: 'Organization 1', createdAt: new Date().toISOString() },
+  { id: '2', name: 'Organization 2', createdAt: new Date().toISOString() },
+  { id: '3', name: 'Organization 3', createdAt: new Date().toISOString() },
 ];
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const [organizations, setOrganizations] = useState<Organization[]>(MOCK_ORGANIZATIONS);
+  const [organizations] = useState<Organization[]>(MOCK_ORGANIZATIONS);
   const [selectedOrganization, setSelectedOrganizationState] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

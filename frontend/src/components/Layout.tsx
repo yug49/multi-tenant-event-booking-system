@@ -2,58 +2,52 @@ import { NavLink, Outlet } from 'react-router-dom';
 import OrganizationSwitcher from './OrganizationSwitcher';
 
 const navItems = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/events', label: 'Events' },
-  { to: '/resources', label: 'Resources' },
-  { to: '/attendees', label: 'Attendees' },
-  { to: '/reports', label: 'Reports' },
+  { to: '/', label: 'Dashboard', icon: '◫' },
+  { to: '/events', label: 'Events', icon: '◉' },
+  { to: '/resources', label: 'Resources', icon: '▣' },
+  { to: '/attendees', label: 'Attendees', icon: '◎' },
+  { to: '/reports', label: 'Reports', icon: '▤' },
 ];
 
 export default function Layout() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#fafafa]">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-semibold text-gray-900">
-              Event Booking System
+      <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 z-50">
+        <div className="h-full px-4 flex justify-between items-center">
+          <div className="flex items-center gap-8">
+            <h1 className="text-base font-semibold text-gray-900 tracking-tight">
+              EventBook
             </h1>
-            <OrganizationSwitcher />
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={({ isActive }) =>
+                    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-gray-900 text-white'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
           </div>
+          <OrganizationSwitcher />
         </div>
       </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-sm min-h-[calc(100vh-4rem)] border-r border-gray-200">
-          <nav className="p-4 space-y-1">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) =>
-                  `block px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          <div className="max-w-6xl mx-auto">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      {/* Main Content */}
+      <main className="pt-14 min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 }
